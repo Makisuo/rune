@@ -13,6 +13,8 @@ enum Case {
     FullSpan,
     /// Fixed row heights.
     Rows,
+    /// A dialog's layout: rows 1fr auto 3fr, the panel in the middle row, centred across.
+    PlacedRow,
 }
 
 fn view(case: &Case, _: &mut Cx<Case>) -> El {
@@ -37,6 +39,11 @@ fn view(case: &Case, _: &mut Cx<Case>) -> El {
             .grid_columns([GridTrack::Fr(1.0)])
             .grid_rows([GridTrack::Px(30.0), GridTrack::Px(50.0)])
             .children([el().key("a"), el().key("b")]),
+        Case::PlacedRow => grid
+            .h(260.0)
+            .grid_rows([GridTrack::Fr(1.0), GridTrack::Auto, GridTrack::Fr(3.0)])
+            .grid_justify_center()
+            .child(el().key("panel").w(100.0).h(60.0).grid_row_start(2)),
     })
 }
 
@@ -78,4 +85,11 @@ fn row_tracks_size_the_rows() {
     let r = rects(Case::Rows, &["a", "b"]);
     assert_eq!((r[0][1], r[0][3]), (0.0, 30.0));
     assert_eq!((r[1][1], r[1][3]), (34.0, 50.0));
+}
+
+#[test]
+fn an_item_starts_at_its_row_line_and_centres_across_its_cell() {
+    let r = rects(Case::PlacedRow, &["panel"]);
+    // 260 tall, two 4-point row gaps: 192 left for 1fr and 3fr, so the panel starts at 48 + 4.
+    assert_eq!(r[0], [100.0, 52.0, 100.0, 60.0]);
 }

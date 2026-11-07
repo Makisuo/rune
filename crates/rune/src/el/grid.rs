@@ -53,4 +53,14 @@ impl El {
         self.style.set_grid_column(line(1), line(-1));
         self
     }
+    /// Start at row line `n` of a `grid_rows` parent, 1 the first (`grid-row-start: n`).
+    pub fn grid_row_start(mut self, n: i16) -> Self {
+        self.style.set_grid_row(line(n), GridPlacement::Auto);
+        self
+    }
+    /// Centre each item across its cell, at its own width (`justify-items: center`).
+    pub fn grid_justify_center(mut self) -> Self {
+        self.style.set_justify_items(AlignItems::CENTER);
+        self
+    }
 }

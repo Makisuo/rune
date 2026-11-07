@@ -280,6 +280,16 @@ impl CompactStyle {
         self.modify_cold(|s| s.grid_column = Line { start, end });
     }
 
+    /// `grid-row`: where a grid item starts and ends along the rows.
+    pub fn set_grid_row(&mut self, start: GridPlacement, end: GridPlacement) {
+        self.modify_cold(|s| s.grid_row = Line { start, end });
+    }
+
+    /// `justify-items`: how a grid places its items across their cells.
+    pub fn set_justify_items(&mut self, items: AlignItems) {
+        self.modify_cold(|s| s.justify_items = items);
+    }
+
     #[inline(always)]
     pub fn set_position_absolute(&mut self) {
         if let Some(s) = &mut self.extra {
