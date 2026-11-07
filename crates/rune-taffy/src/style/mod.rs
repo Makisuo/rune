@@ -9,8 +9,8 @@ use taffy::style::{
     AlignContent, AlignContentKeyword, AlignItems, AlignItemsKeyword, AlignSelf, AlignmentSafety, BlockContainerStyle,
     BlockItemStyle, BoxGenerationMode, BoxSizing, CompactLength, Contain, CoreStyle, Dimension, Direction, Display,
     FlexDirection, FlexWrap, FlexboxContainerStyle, FlexboxItemStyle, GridAutoFlow, GridContainerStyle, GridItemStyle,
-    GridPlacement, JustifyContent, LengthPercentage, LengthPercentageAuto, OofItemStyle, Overflow, Position, Style,
-    TextAlign,
+    GridPlacement, GridTemplateComponent, JustifyContent, LengthPercentage, LengthPercentageAuto, OofItemStyle,
+    Overflow, Position, Style, TextAlign, TrackSizingFunction,
 };
 use taffy::style_helpers::{TaffyAuto, TaffyZero, fr, line, span};
 
