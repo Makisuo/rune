@@ -29,6 +29,7 @@ pub(crate) mod effect;
 mod element_info;
 mod enter_delay;
 mod focus;
+mod grid;
 mod growth;
 mod handler_set;
 mod handlers;
@@ -345,6 +346,7 @@ pub enum Align {
 }
 
 pub use crate::el::anchor::{Anchor, Side, anchor_rect};
+pub use crate::el::grid::GridTrack;
 pub(crate) use crate::el::scroll::FadeStyle;
 pub use crate::el::scroll::ScrollFade;
 pub use crate::el::text_spec::TextSpec;

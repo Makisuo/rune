@@ -99,6 +99,7 @@ pub use el::CursorImage;
 pub use el::Cycle;
 pub use el::Drag;
 pub use el::El;
+pub use el::GridTrack;
 pub use el::GrowthSpec;
 pub use el::InlineIcon;
 pub use el::LiveRegion;

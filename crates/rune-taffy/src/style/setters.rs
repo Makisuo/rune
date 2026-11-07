@@ -259,6 +259,27 @@ impl CompactStyle {
         });
     }
 
+    /// `grid-template-columns`: one track per column, and grid display.
+    pub fn set_grid_template_columns(&mut self, tracks: Vec<TrackSizingFunction>) {
+        self.modify_cold(|s| {
+            s.display = Display::Grid;
+            s.grid_template_columns = tracks.into_iter().map(GridTemplateComponent::Single).collect();
+        });
+    }
+
+    /// `grid-template-rows`: one track per row; rows past them size as `grid-auto-rows` says.
+    pub fn set_grid_template_rows(&mut self, tracks: Vec<TrackSizingFunction>) {
+        self.modify_cold(|s| {
+            s.display = Display::Grid;
+            s.grid_template_rows = tracks.into_iter().map(GridTemplateComponent::Single).collect();
+        });
+    }
+
+    /// `grid-column`: where a grid item starts and ends along the columns.
+    pub fn set_grid_column(&mut self, start: GridPlacement, end: GridPlacement) {
+        self.modify_cold(|s| s.grid_column = Line { start, end });
+    }
+
     #[inline(always)]
     pub fn set_position_absolute(&mut self) {
         if let Some(s) = &mut self.extra {
