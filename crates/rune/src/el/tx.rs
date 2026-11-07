@@ -39,6 +39,7 @@ pub struct Tx {
     pub(crate) paste: bool,
     pub(crate) clipboard_reads: Vec<ClipboardRead>,
     pub(crate) pick_reads: Vec<PickRead>,
+    pub(crate) rect_reads: Vec<RectRead>,
     pub(crate) clear_secret: bool,
     pub(crate) text_flights: Vec<(String, String)>,
     /// `Tx::launch`: (source, destination).
@@ -149,6 +150,17 @@ impl Tx {
         self.pick_read(Some(within.into()), x, y, pick, f);
     }
 
+    /// Where the elements `keys` name (each a key, as [`Runtime::presented`](crate::Runtime::presented)
+    /// takes) were drawn in the last presented frame, `[x, y, w, h]` in window points through
+    /// scrolling and offsets, or `None` for one not drawn. Runs `f` after this handler, as
+    /// [`Tx::element_at`] does: an embedder answering a DOM `getBoundingClientRect` reads here.
+    pub fn drawn_rects<S: 'static>(&mut self, keys: Vec<String>, f: impl FnOnce(&mut S, Vec<Option<[f32; 4]>>, &mut Tx) + 'static) {
+        let f: RectsFn = Box::new(move |s, rects, tx| {
+            if let Some(s) = s.cast::<S>() { f(s, rects, tx); }
+        });
+        self.rect_reads.push(RectRead { keys, f: Rc::new(std::cell::Cell::new(Some(f))) });
+    }
+
     fn pick_read<S: 'static>(&mut self, within: Option<String>, x: f32, y: f32, pick: crate::Pick, f: impl FnOnce(&mut S, Option<crate::Picked>, &mut Tx) + 'static) {
         let f: PickFn = Box::new(move |s, picked, tx| {
             if let Some(s) = s.cast::<S>() { f(s, picked, tx); }
@@ -169,7 +181,7 @@ impl Tx {
     /// Work only a frame carries out that changes its pixels without a model change: a scroll
     /// or a text flight. A `wake_after` only schedules.
     pub(crate) fn frame_work(&self) -> bool {
-        !self.pick_reads.is_empty() || !self.scroll_to.is_empty() || !self.scroll_bottom.is_empty() || !self.scroll_pages.is_empty() || !self.scroll_offsets.is_empty()
+        !self.pick_reads.is_empty() || !self.rect_reads.is_empty() || !self.scroll_to.is_empty() || !self.scroll_bottom.is_empty() || !self.scroll_pages.is_empty() || !self.scroll_offsets.is_empty()
             || !self.keep_on_screen.is_empty() || !self.text_flights.is_empty() || !self.launches.is_empty() || self.select.is_some()
             || self.focus_to.is_some()
     }

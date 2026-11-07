@@ -424,8 +424,19 @@ impl<S: 'static> Runtime<S> {
                 self.dirty = true;
             }
         }
+        for read in std::mem::take(&mut tx.rect_reads) {
+            let rects = read.keys.iter().map(|key| {
+                let i = (0..self.nodes.len()).find(|&i| self.nodes[i].key.as_deref() == Some(key.as_str()) && !self.subtree_exiting(i))?;
+                self.drawn.get(i).copied()
+            }).collect();
+            if let Some(f) = read.f.take() {
+                f(states!(self), rects, tx);
+                self.dirty = true;
+            }
+        }
         // A callback may ask again, but cannot keep this dispatch running indefinitely.
         self.pending.pick_reads.append(&mut tx.pick_reads);
+        self.pending.rect_reads.append(&mut tx.rect_reads);
     }
 
     /// [`Runtime::element_at`] restricted to an element and its descendants, ignoring other

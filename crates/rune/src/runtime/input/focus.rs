@@ -535,6 +535,24 @@ mod tests {
         rt.elements().into_iter().find(|e| e.focused).and_then(|e| e.key).unwrap()
     }
     #[test]
+    fn tx_drawn_rects_reads_where_elements_were_drawn() {
+        #[derive(Default)]
+        struct Seen { rects: Vec<Option<[f32; 4]>> }
+        fn view(_: &Seen, _: &mut Cx<Seen>) -> El {
+            col().key("root").size(200.0, 200.0)
+                .child(el().key("top").size(200.0, 40.0))
+                .child(el().key("target").size(80.0, 30.0).on_secondary_press(|_: &mut Seen, _, tx| {
+                    tx.drawn_rects(vec!["target".into(), "missing".into()], |s: &mut Seen, rects, _| s.rects = rects);
+                }))
+        }
+        let mut rt = Runtime::new(Seen::default(), view, (200.0, 200.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.secondary_down(10.0, 50.0);
+        rt.secondary_up(10.0, 50.0);
+        rt.frame(0.0);
+        assert_eq!(rt.state.rects, vec![Some([0.0, 40.0, 80.0, 30.0]), None]);
+    }
+    #[test]
     fn tx_focus_reaches_an_element_the_same_change_builds() {
         let mut rt = runtime();
         rt.update(|_, tx| tx.focus("early"));

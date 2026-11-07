@@ -417,6 +417,17 @@ impl PillStyle {
 }
 pub(crate) type InputPasteFn = Rc<dyn Fn(crate::states::States<'_>, &crate::ClipboardContent, &mut Tx) -> bool>;
 pub(crate) type PickFn = Box<dyn FnOnce(crate::states::States<'_>, Option<crate::Picked>, &mut Tx)>;
+pub(crate) type RectsFn = Box<dyn FnOnce(crate::states::States<'_>, Vec<Option<[f32; 4]>>, &mut Tx)>;
+
+/// A `Tx::drawn_rects` waiting for the runtime.
+#[derive(Clone)]
+pub(crate) struct RectRead {
+    pub keys: Vec<String>,
+    pub(crate) f: Rc<std::cell::Cell<Option<RectsFn>>>,
+}
+impl std::fmt::Debug for RectRead {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("RectRead") }
+}
 
 #[derive(Clone)]
 pub(crate) struct PickRead {
