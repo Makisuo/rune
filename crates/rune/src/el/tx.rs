@@ -82,6 +82,8 @@ pub struct Tx {
     pub(crate) font_smoothing: Option<crate::text::FontSmoothing>,
     pub(crate) font_families: Option<(String, String)>,
     pub(crate) blur: bool,
+    /// `Tx::focus`: the element to focus after this change commits.
+    pub(crate) focus_to: Option<String>,
     /// The text selection as the event arrived (`Tx::text_selection`).
     pub(crate) selection: Option<Rc<crate::TextSelection>>,
     /// `Tx::select_text`, `Tx::select_all_text` and `Tx::clear_text_selection`; the last wins.
@@ -169,6 +171,7 @@ impl Tx {
     pub(crate) fn frame_work(&self) -> bool {
         !self.pick_reads.is_empty() || !self.scroll_to.is_empty() || !self.scroll_bottom.is_empty() || !self.scroll_pages.is_empty() || !self.scroll_offsets.is_empty()
             || !self.keep_on_screen.is_empty() || !self.text_flights.is_empty() || !self.launches.is_empty() || self.select.is_some()
+            || self.focus_to.is_some()
     }
 
     /// An app marker on the next frame, e.g. `tx.trace_event(format_args!("lab:{step:?}"))`.
@@ -298,6 +301,14 @@ impl Tx {
     /// model clears it too. Does nothing when nothing has focus.
     pub fn blur(&mut self) {
         self.blur = true;
+    }
+
+    /// Focus the element `key` names (a key, path or key path, as [`Tx::scroll_into_view`]
+    /// takes) after this change commits, so an element the same change builds can take it, as
+    /// the DOM's `element.focus()` does. Nothing happens when it names no shown, focusable
+    /// element. The ring shows when the last input was the keyboard. The last request wins.
+    pub fn focus(&mut self, key: impl Into<String>) {
+        self.focus_to = Some(key.into());
     }
 
     /// The [`El::selectable`] text selection as this event arrived: the texts it covers with

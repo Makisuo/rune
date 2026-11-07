@@ -153,6 +153,17 @@ impl<S: 'static> Runtime<S> {
         }
     }
 
+    /// A `Tx::focus`, against the tree the last commit built. An element that is hidden,
+    /// inert, behind a modal or not focusable leaves focus where it was.
+    fn apply_focus_request(&mut self) {
+        let Some(key) = self.focus_request.take() else { return };
+        let Some(i) = super::key_index::scan_first(&self.nodes, &key) else { return };
+        if !self.can_focus(i) { return }
+        let path = self.nodes[i].path.clone();
+        if self.set_focus(Some(path), self.keyboard_focus) { self.dirty = true; }
+        self.last_focused = self.focused.clone();
+    }
+
     /// Latches a Tx's shell and clipboard requests for the shell, so `update`, a hidden poll
     /// and `on_close` reach the clipboard without a frame, and applies clipboard requests to a
     /// memory clipboard at once. A secret clear drops an earlier secret copy not yet written.
@@ -163,6 +174,10 @@ impl<S: 'static> Runtime<S> {
         self.titlebar.toggle_maximized |= std::mem::take(&mut tx.toggle_maximized);
         self.titlebar.toggle_full_screen |= std::mem::take(&mut tx.toggle_full_screen);
         for ev in std::mem::take(&mut tx.keys) { self.key(ev); }
+        if let Some(key) = tx.focus_to.take() {
+            self.focus_request = Some(key);
+            self.dirty = true;
+        }
         self.latch_playground(tx);
         for prefix in std::mem::take(&mut tx.evict_memos) { self.invalidate_memos_by_prefix(&prefix); }
         if !tx.open_urls.is_empty() { self.open_urls(std::mem::take(&mut tx.open_urls)); }
@@ -564,6 +579,7 @@ impl<S: 'static> Runtime<S> {
         #[cfg(debug_assertions)]
         { self.live_check = None; }
         tx.keep_on_screen.clear();
+        self.apply_focus_request();
         let mut scroll_to = std::mem::take(&mut tx.scroll_to);
         for (path, v) in &mut self.virtuals {
             if let Some(key) = v.reveal_selected.take() && !pointer_hover {

@@ -535,6 +535,22 @@ mod tests {
         rt.elements().into_iter().find(|e| e.focused).and_then(|e| e.key).unwrap()
     }
     #[test]
+    fn tx_focus_reaches_an_element_the_same_change_builds() {
+        let mut rt = runtime();
+        rt.update(|_, tx| tx.focus("early"));
+        rt.frame(0.0);
+        assert_eq!(focused(&rt), "early", "an element already built");
+        rt.update(|s, tx| { s.open = true; tx.focus("two"); });
+        rt.frame(0.0);
+        assert_eq!(focused(&rt), "two", "an element built by the same change, inside a modal");
+        rt.update(|_, tx| tx.focus("disabled"));
+        rt.frame(0.0);
+        assert_eq!(focused(&rt), "two", "an unfocusable element leaves focus where it was");
+        rt.update(|_, tx| tx.focus("early"));
+        rt.frame(0.0);
+        assert_eq!(focused(&rt), "two", "the page behind a modal is inert");
+    }
+    #[test]
     fn state_focus_routes_the_first_same_frame_key_to_a_new_field() {
         use crate::{text_input, TextEdit, TextStyle};
         struct Form { first: TextEdit, next: TextEdit, open: bool, hidden: bool }

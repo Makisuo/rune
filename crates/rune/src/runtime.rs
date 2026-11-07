@@ -588,6 +588,8 @@ pub struct Runtime<S: 'static> {
     /// Focus before the current gesture/commit blurred it, so a scrim press that blurs on
     /// pointer-down and closes its overlay on pointer-up still honours `focus_return`.
     last_focused: Option<String>,
+    /// A `Tx::focus` waiting for the next commit.
+    focus_request: Option<String>,
     /// Focused text fields that unmounted without being blurred: while another field holds focus,
     /// remounting one with its old `focused = true` flag does not steal focus back.
     unmounted_focused: Vec<std::sync::Weak<crate::edit::History>>,
@@ -955,6 +957,7 @@ impl<S: 'static> Runtime<S> {
             modal_stack: Vec::new(),
             focus_before_commit: None,
             last_focused: None,
+            focus_request: None,
             unmounted_focused: Vec::new(),
             modal_index: None,
             modal_members: Vec::new(),
