@@ -336,4 +336,9 @@ impl<S: 'static> Runtime<S> {
     pub fn has_focus(&self) -> bool {
         self.focused.is_some()
     }
+
+    /// The focused element's path, drawn or not (a 0x0 `focusable_when_empty` control).
+    pub fn focused_path(&self) -> Option<&str> {
+        self.focused.as_deref()
+    }
 }

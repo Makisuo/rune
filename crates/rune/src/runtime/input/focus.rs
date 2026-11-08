@@ -612,6 +612,7 @@ mod tests {
         rt.update(|_, tx| tx.focus("before"));
         rt.frame(0.0);
         assert_eq!(tab(&mut rt), Some("dropzone"), "the 0x0 control that asks is a Tab stop; the other is skipped");
+        assert!(rt.focused_path().is_some_and(|p| p.ends_with("dropzone")), "focused_path names it undrawn");
         assert_eq!(tab(&mut rt), Some("after"));
     }
     #[test]
