@@ -678,6 +678,16 @@ mod tests {
     }
 
     #[test]
+    fn webp_and_gif_images_decode() {
+        let source = image::RgbaImage::from_pixel(3, 2, image::Rgba([10, 200, 30, 255]));
+        for format in [image::ImageFormat::WebP, image::ImageFormat::Gif] {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgba8(source.clone()).write_to(&mut bytes, format).unwrap();
+            assert!(decode(bytes.get_ref()).is_ok(), "{format:?} did not decode");
+        }
+    }
+
+    #[test]
     fn decoded_pixels_wake_windows_only_once_the_image_reports_ready() {
         let image = Image::new(Arc::new(State { id: [0; 32], pixels: crate::Pixels::new(), decoded: OnceLock::new() }));
         let seen = Arc::new(Mutex::new(Vec::new()));
