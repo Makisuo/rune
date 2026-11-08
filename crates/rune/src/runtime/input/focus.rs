@@ -101,7 +101,8 @@ impl<S: 'static> Runtime<S> {
             if self.nodes[p].vis.opacity <= 0.0 { return false; }
             parent = self.nodes[p].parent;
         }
-        self.allowed(i) && !self.subtree_exiting(i) && n.vis.opacity > 0.0 && n.local.w > 0.0 && n.local.h > 0.0
+        self.allowed(i) && !self.subtree_exiting(i) && n.vis.opacity > 0.0
+            && (n.focus.when_empty || n.local.w > 0.0 && n.local.h > 0.0)
     }
     /// Whether Return goes to focused element `i` rather than the default button: a focused
     /// link, a `focus_highlight` row, or an item of a menu, list, tree or grid group.
@@ -224,7 +225,7 @@ impl<S: 'static> Runtime<S> {
         };
         let shown = |idx: usize| {
             let n = &nodes[idx];
-            !n.inert && n.vis.opacity > 0.0 && n.local.w > 0.0 && n.local.h > 0.0
+            !n.inert && n.vis.opacity > 0.0 && (n.focus.when_empty || n.local.w > 0.0 && n.local.h > 0.0)
                 && std::iter::successors(n.parent, |&p| nodes[p].parent).all(|p| nodes[p].vis.opacity > 0.0)
         };
         let restore = self.nodes.iter().enumerate().rev().find_map(|(i, old)| {
@@ -588,6 +589,30 @@ mod tests {
         rt.pointer_up(x, y);
         rt.frame(0.0);
         assert_eq!(rt.state.presses, 1, "a press on it reaches the row around it");
+    }
+    #[test]
+    fn tab_reaches_an_empty_control_that_asks_for_it() {
+        fn hears(e: El, name: &'static str) -> El {
+            e.on_key(move |s: &mut Option<&'static str>, _, _| { *s = Some(name); false })
+        }
+        fn view(_: &Option<&'static str>, _: &mut Cx<Option<&'static str>>) -> El {
+            col().key("root").size(200.0, 200.0)
+                .child(button("before"))
+                .child(hears(el().key("empty").focusable(true), "empty"))
+                .child(hears(el().key("dropzone").focusable(true).focusable_when_empty(), "dropzone"))
+                .child(hears(button("after"), "after"))
+        }
+        let mut rt = Runtime::new(None, view, (200.0, 200.0), Env::new(true, 1.0));
+        let tab = |rt: &mut Runtime<Option<&'static str>>| {
+            rt.key(KeyEvent { key: Key::Tab, mods: Mods::default() }); rt.frame(0.0);
+            rt.key(KeyEvent { key: Key::Down, mods: Mods::default() }); rt.frame(0.0);
+            rt.state
+        };
+        rt.frame(0.0);
+        rt.update(|_, tx| tx.focus("before"));
+        rt.frame(0.0);
+        assert_eq!(tab(&mut rt), Some("dropzone"), "the 0x0 control that asks is a Tab stop; the other is skipped");
+        assert_eq!(tab(&mut rt), Some("after"));
     }
     #[test]
     fn tx_focus_reaches_an_element_the_same_change_builds() {

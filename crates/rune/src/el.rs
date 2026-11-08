@@ -1051,6 +1051,12 @@ impl El {
         self.focus.scripted = true;
         self
     }
+    /// Focusable, and a Tab stop, while it has no area (a 0x0 control, an empty list), as the
+    /// DOM's controls are. Hidden (zero opacity) or inert elements stay unreachable.
+    pub fn focusable_when_empty(mut self) -> Self {
+        self.focus.when_empty = true;
+        self
+    }
     /// Positive overrides precede document order (0); negative values skip Tab only.
     pub fn tab_index(mut self, order: i32) -> Self {
         self.focus.order = order;

@@ -10,6 +10,8 @@ pub(crate) struct FocusSpec {
     /// `focusable_by_script`: `Tx::focus` may focus it, and it then hears keys, but it is no
     /// Tab stop and takes no press from the elements around it (the DOM's `tabindex="-1"`).
     pub scripted: bool,
+    /// `focusable_when_empty`: focusable without a drawn area, as the DOM's controls are.
+    pub when_empty: bool,
     pub order: i32,
     pub group: bool,
     pub selected: bool,
@@ -41,6 +43,7 @@ impl crate::cold::Empty for FocusSpec {
         physical: None,
         enabled: false,
         scripted: false,
+        when_empty: false,
         order: 0,
         group: false,
         selected: false,
