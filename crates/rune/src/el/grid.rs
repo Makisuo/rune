@@ -17,6 +17,9 @@ pub enum GridTrack {
     MinContent,
     /// As wide as its content wants (`max-content`).
     MaxContent,
+    /// Between two sizes in points (`minmax(200px, 280px)`): it grows to the larger before `fr`
+    /// tracks share what is left, as CSS grid does.
+    MinMaxPx(f32, f32),
 }
 
 impl GridTrack {
@@ -27,6 +30,7 @@ impl GridTrack {
             GridTrack::Auto => auto(),
             GridTrack::MinContent => min_content(),
             GridTrack::MaxContent => max_content(),
+            GridTrack::MinMaxPx(lo, hi) => minmax(length(lo), length(hi)),
         }
     }
 }

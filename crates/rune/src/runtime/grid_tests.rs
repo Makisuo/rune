@@ -13,6 +13,8 @@ enum Case {
     FullSpan,
     /// Fixed row heights.
     Rows,
+    /// `minmax(60px, 90px) 1fr`: the first track grows to 90 before the fraction.
+    MinMaxThenFr,
     /// A dialog's layout: rows 1fr auto 3fr, the panel in the middle row, centred across.
     PlacedRow,
 }
@@ -35,6 +37,9 @@ fn view(case: &Case, _: &mut Cx<Case>) -> El {
             .grid_columns([GridTrack::Fr(1.0), GridTrack::Fr(1.0)])
             .child(cell("heading").grid_column_full())
             .children(["a", "b"].map(cell)),
+        Case::MinMaxThenFr => grid
+            .grid_columns([GridTrack::MinMaxPx(60.0, 90.0), GridTrack::Fr(1.0)])
+            .children([el().key("label").w(20.0).h(20.0), cell("value")]),
         Case::Rows => grid
             .grid_columns([GridTrack::Fr(1.0)])
             .grid_rows([GridTrack::Px(30.0), GridTrack::Px(50.0)])
@@ -92,4 +97,11 @@ fn an_item_starts_at_its_row_line_and_centres_across_its_cell() {
     let r = rects(Case::PlacedRow, &["panel"]);
     // 260 tall, two 4-point row gaps: 192 left for 1fr and 3fr, so the panel starts at 48 + 4.
     assert_eq!(r[0], [100.0, 52.0, 100.0, 60.0]);
+}
+
+#[test]
+fn a_minmax_track_grows_to_its_max_before_a_fraction() {
+    let r = rects(Case::MinMaxThenFr, &["label", "value"]);
+    // 300 wide, a 10-point gap: the first track is 90 though its content is 20; the rest is 200.
+    assert_eq!(r[1], [100.0, 0.0, 200.0, 20.0]);
 }
