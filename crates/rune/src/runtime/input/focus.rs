@@ -84,9 +84,14 @@ impl<S: 'static> Runtime<S> {
     pub(super) fn allowed(&self, i: usize) -> bool {
         !self.nodes.get(i).is_some_and(|n| n.inert) && (self.active_modal().is_none() || self.modal_members.get(i).copied().unwrap_or(false))
     }
+    /// Focusable by `Tx::focus` alone (`El::focusable_by_script`).
+    fn scripted_only(&self, i: usize) -> bool {
+        let n = &self.nodes[i];
+        n.focus.scripted && !n.focus.enabled && n.input.is_none()
+    }
     pub(super) fn can_focus(&self, i: usize) -> bool {
         let n = &self.nodes[i];
-        (n.focus.enabled || n.input.as_ref().is_some_and(|s| s.access.is_some())) && self.reachable(i)
+        (n.focus.enabled || n.focus.scripted || n.input.as_ref().is_some_and(|s| s.access.is_some())) && self.reachable(i)
     }
     /// Shown, sized, not exiting and not behind a modal.
     fn reachable(&self, i: usize) -> bool {
@@ -242,6 +247,7 @@ impl<S: 'static> Runtime<S> {
             let anchor = nodes.iter().find(|n| n.key.as_deref() == Some(key))?;
             let candidates = (0..nodes.len()).filter(|&j| within(&nodes[j].path, &anchor.path) && shown(j)
                 && (nodes[j].focus.enabled || nodes[j].input.as_ref().is_some_and(|i| i.access.is_some())));
+            // (A script-only focusable is no restore target: the DOM returns focus to a control.)
             candidates.clone().find(|&j| nodes[j].focus.selected)
                 .or_else(|| candidates.into_iter().next())
                 .map(|j| nodes[j].path.clone())
@@ -273,7 +279,7 @@ impl<S: 'static> Runtime<S> {
             .map(|(p, _)| p.to_owned())
             .or(restore)
             .or_else(|| self.focused.clone().filter(|p| (0..nodes.len()).any(|j| &nodes[j].path == p && shown(j)
-                && (nodes[j].focus.enabled || nodes[j].input.as_ref().is_some_and(|i| i.edit.focused)))
+                && (nodes[j].focus.enabled || nodes[j].focus.scripted || nodes[j].input.as_ref().is_some_and(|i| i.edit.focused)))
                 || self.virtual_inputs.get(p).is_some_and(|i| i.edit.focused)))
             .or_else(|| requested.into_iter().next().or_else(|| virtual_req().min_by_key(|&(p, _)| p)).map(|(p, _)| p.to_owned()));
         // State may have deleted a row. Only the new view's accessors are valid now.
@@ -298,7 +304,9 @@ impl<S: 'static> Runtime<S> {
         changed
     }
     fn tab_order(&self) -> Vec<usize> {
-        let all: Vec<_> = (0..self.nodes.len()).filter(|&i| self.can_focus(i) && self.nodes[i].focus.order >= 0).collect();
+        let all: Vec<_> = (0..self.nodes.len())
+            .filter(|&i| self.can_focus(i) && self.nodes[i].focus.order >= 0 && !self.scripted_only(i))
+            .collect();
         let mut order: Vec<_> = all.iter().copied().filter(|&i| {
             let Some(g) = self.group(i) else { return true; };
             let chosen = all.iter().copied().filter(|&j| self.group(j) == Some(g))
@@ -551,6 +559,35 @@ mod tests {
         rt.secondary_up(10.0, 50.0);
         rt.frame(0.0);
         assert_eq!(rt.state.rects, vec![Some([0.0, 40.0, 80.0, 30.0]), None]);
+    }
+    #[test]
+    fn a_script_focusable_element_takes_tx_focus_and_keys_but_not_tab_or_presses() {
+        #[derive(Default)]
+        struct Menu { keys: usize, presses: usize }
+        fn view(_: &Menu, _: &mut Cx<Menu>) -> El {
+            col().key("root").size(200.0, 200.0)
+                .child(button("before"))
+                .child(el().key("row").size(100.0, 30.0).on_press(|s: &mut Menu| s.presses += 1)
+                    .child(el().key("item").size(100.0, 30.0).focusable_by_script()
+                        .on_key(|s: &mut Menu, _, _| { s.keys += 1; true })))
+                .child(button("after"))
+        }
+        let mut rt = Runtime::new(Menu::default(), view, (200.0, 200.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.update(|_, tx| tx.focus("item"));
+        rt.frame(0.0);
+        assert_eq!(focused(&rt), "item", "Tx::focus reaches it");
+        rt.key(KeyEvent { key: Key::Down, mods: Mods::default() }); rt.frame(0.0);
+        assert_eq!(rt.state.keys, 1, "focused, it hears keys");
+        rt.update(|_, tx| tx.focus("before"));
+        rt.frame(0.0);
+        rt.key(KeyEvent { key: Key::Tab, mods: Mods::default() }); rt.frame(0.0);
+        assert_eq!(focused(&rt), "after", "Tab skips it");
+        let (x, y) = rt.find("item").unwrap();
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.0);
+        assert_eq!(rt.state.presses, 1, "a press on it reaches the row around it");
     }
     #[test]
     fn tx_focus_reaches_an_element_the_same_change_builds() {

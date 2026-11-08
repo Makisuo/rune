@@ -1044,6 +1044,13 @@ impl El {
         self.focus.enabled = enabled;
         self
     }
+    /// Focusable by [`Tx::focus`] only, as the DOM's `tabindex="-1"`: focused, it hears keys
+    /// (`on_key`) and draws its rings, but Tab skips it and a press on it goes to the element
+    /// around it that handles presses, rather than stopping at it.
+    pub fn focusable_by_script(mut self) -> Self {
+        self.focus.scripted = true;
+        self
+    }
     /// Positive overrides precede document order (0); negative values skip Tab only.
     pub fn tab_index(mut self, order: i32) -> Self {
         self.focus.order = order;

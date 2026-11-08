@@ -7,6 +7,9 @@ use crate::el::Outline;
 pub(crate) struct FocusSpec {
     pub physical: Option<crate::input::physical_input::Handler>,
     pub enabled: bool,
+    /// `focusable_by_script`: `Tx::focus` may focus it, and it then hears keys, but it is no
+    /// Tab stop and takes no press from the elements around it (the DOM's `tabindex="-1"`).
+    pub scripted: bool,
     pub order: i32,
     pub group: bool,
     pub selected: bool,
@@ -37,6 +40,7 @@ impl crate::cold::Empty for FocusSpec {
     const EMPTY: &'static Self = &FocusSpec {
         physical: None,
         enabled: false,
+        scripted: false,
         order: 0,
         group: false,
         selected: false,
