@@ -389,6 +389,22 @@ impl<S: 'static> Runtime<S> {
         }
     }
 
+    /// The viewport a vertical wheel delta scrolls: the innermost at (x, y) that can still move
+    /// that way, as a browser chains a scroll past a viewport at its end (or with nothing to
+    /// scroll) to the one around it. The innermost when none can.
+    pub(super) fn wheel_scroller(&self, x: f32, y: f32, dy: f32) -> Option<NodeId> {
+        let mut innermost = None;
+        for (i, n) in self.nodes.iter().enumerate().rev() {
+            if n.scroll.is_none() || !n.scroll_axes.has(false) || self.subtree_exiting(i) || !self.allowed(i) { continue; }
+            if !self.node_contains(i, x, y) { continue; }
+            innermost.get_or_insert(n.id);
+            let Some(st) = self.scrolls.get(&n.id) else { continue };
+            let moves = if dy > 0.0 { st.offset > 0.0 } else { st.offset < st.max };
+            if moves { return Some(n.id); }
+        }
+        innermost
+    }
+
     /// The innermost vertical scroll viewport at (x, y).
     pub(super) fn scroll_at(&self, x: f32, y: f32) -> Option<NodeId> {
         self.scroll_at_axis(x, y, false)
@@ -411,7 +427,7 @@ impl<S: 'static> Runtime<S> {
         self.release_hover_hold();
         self.drop_scroll_holds();
         self.dismiss_help();
-        let Some(id) = self.scroll_at(x, y) else { return };
+        let Some(id) = self.wheel_scroller(x, y, dy) else { return };
         let stick = self.node_index.get(&id).and_then(|&i| self.nodes[i].scroll).is_some_and(|s| s.stick_bottom);
         if let Some(st) = self.scrolls.get_mut(&id) {
             let before = st.offset;
@@ -459,3 +475,7 @@ impl<S: 'static> Runtime<S> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../scroll_chain_tests.rs"]
+mod scroll_chain_tests;
