@@ -168,7 +168,8 @@ impl El {
         self
     }
     /// How this element enters and exits when mounted or removed after the first frame
-    /// (default: [`Transition::opacity()`] — a 0.2 s enter and 0.15 s exit fade). Because
+    /// (default: [`Transition::opacity()`] — a 0.2 s enter and 0.15 s exit fade, or what
+    /// [`set_default_transition`](crate::set_default_transition) set). Because
     /// every element has this default fade, removing an element in an animated commit
     /// (`AppSpec::on_key`, `El::on_key`, `on_submit`, `on_press`) fades it out over 0.15 s,
     /// whereas commits that set [`Tx::instant`] or [`Tx::settle`] (such as typing in a
@@ -210,4 +211,18 @@ impl El {
         self.vis.cold_mut().flight_crop = true;
         self
     }
+}
+
+static DEFAULT_TRANSITION: std::sync::OnceLock<Transition> = std::sync::OnceLock::new();
+
+/// The transition of every element that sets none, for this process: an embedder rendering a
+/// document whose elements appear and vanish at once (the DOM's) passes [`Transition::none`].
+/// Only the first call counts; call it before the first window opens.
+pub fn set_default_transition(transition: Transition) {
+    let _ = DEFAULT_TRANSITION.set(transition);
+}
+
+/// What an element without its own transition enters and leaves with.
+pub(crate) fn default_transition() -> Transition {
+    DEFAULT_TRANSITION.get().copied().unwrap_or_else(Transition::opacity)
 }

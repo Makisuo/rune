@@ -270,6 +270,7 @@ pub use rune_motion::Stagger;
 pub use rune_motion::StaggerFrom;
 pub use rune_motion::StepPosition;
 pub use rune_motion::Transition;
+pub use el::motion::set_default_transition;
 pub use rune_motion::Travel;
 pub use rune_motion::Vec2;
 pub use rune_motion::Velocity;
