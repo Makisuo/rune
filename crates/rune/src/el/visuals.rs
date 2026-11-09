@@ -411,6 +411,13 @@ impl El {
         self.vis.cold_mut().group_color = Some(c);
         self
     }
+    /// Moves this element (and what is inside it) by `dx`, `dy` points while the nearest
+    /// ancestor group is hovered, following the group's hover track: a badge that slides aside
+    /// for a hover-revealed button. Paint and hits only: layout, and the elements around it, stay.
+    pub fn group_offset(mut self, dx: f32, dy: f32) -> Self {
+        self.vis.cold_mut().group_offset = Some([dx, dy]);
+        self
+    }
     /// Hovering this element shows only its own hover: while the pointer is on it, the
     /// elements it sits inside show no hover overlay and their `group_*` styles rest, as if the
     /// pointer had left them. A face or button inside a hoverable row, for one. Paint only: it

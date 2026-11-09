@@ -59,6 +59,8 @@ pub struct VisualCold {
     pub group_opacity: Option<[f32; 2]>,
     /// Text or icon colour while the nearest ancestor group is hovered.
     pub group_color: Option<Color>,
+    /// A translation in points while the nearest ancestor group is hovered (`El::group_offset`).
+    pub group_offset: Option<[f32; 2]>,
     /// `El::hover_alone`: while the pointer is on this element, the hover tracks of the
     /// elements it sits inside stay off.
     pub hover_alone: bool,
@@ -117,6 +119,7 @@ impl Empty for VisualCold {
         hover_within: None,
         group_opacity: None,
         group_color: None,
+        group_offset: None,
         hover_alone: false,
         hover_share: None,
         icon_turn: 0.0,

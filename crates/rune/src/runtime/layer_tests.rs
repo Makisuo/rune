@@ -485,3 +485,24 @@ fn isolated_layers_preserve_image_video_spring_and_list_order() {
         near(&out[(y*32+x)*4..(y*32+x+1)*4], want);
     }
 }
+
+#[test]
+fn a_group_offset_child_moves_while_its_group_is_hovered_and_back_after() {
+    fn view(_: &(), _: &mut Cx<()>) -> El {
+        crate::col().size(200.0, 100.0).child(
+            el().key("row").size(200.0, 40.0).hover_group().on_press(|_: &mut ()| {})
+                .child(el().key("badge").size(20.0, 20.0).pin(None, Some(10.0), Some(6.0), None)
+                    .fill(Color::WHITE).group_offset(-26.0, 0.0)),
+        )
+    }
+    let mut rt = Runtime::new((), view, (200.0, 100.0), Env { scale: 1.0, system_dark: true });
+    let x = |rt: &Runtime<()>| rt.elements().into_iter().find(|e| e.key.as_deref() == Some("badge")).map(|e| e.visible[0]).unwrap();
+    rt.frame(0.0);
+    let rest = x(&rt);
+    rt.pointer_move(20.0, 20.0);
+    for f in 1..=60 { rt.frame(f as f64 / 60.0); }
+    assert!((x(&rt) - (rest - 26.0)).abs() < 0.5, "hovered: {} from {rest}", x(&rt));
+    rt.pointer_move(20.0, 90.0);
+    for f in 61..=120 { rt.frame(f as f64 / 60.0); }
+    assert!((x(&rt) - rest).abs() < 0.5, "back at rest: {}", x(&rt));
+}

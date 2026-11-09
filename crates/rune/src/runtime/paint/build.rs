@@ -324,11 +324,13 @@ impl<S: 'static> Runtime<S> {
             // An effect slot's bleed can reach into view from a rect outside it.
             let filter_margin = blur * s * 3.0 + n.vis.effect.map_or(0.0, |e| e.bleed * sc * s);
 
+            // `El::group_offset`: moved by the ancestor group's hover, it and everything inside it.
+            let group_shift = n.vis.group_offset.map_or([0.0; 2], |[x, y]| [x * pinh.group, y * pinh.group]);
             let mut raw_edges = p.rect.edges();
-            raw_edges[0] += pinh.dx;
-            raw_edges[2] += pinh.dx;
-            raw_edges[1] += pinh.dy;
-            raw_edges[3] += pinh.dy;
+            raw_edges[0] += pinh.dx + group_shift[0];
+            raw_edges[2] += pinh.dx + group_shift[0];
+            raw_edges[1] += pinh.dy + group_shift[1];
+            raw_edges[3] += pinh.dy + group_shift[1];
             if self.row_h[i] >= 0.0 {
                 raw_edges[3] = raw_edges[1] + self.row_h[i];
             }
@@ -1133,7 +1135,7 @@ impl<S: 'static> Runtime<S> {
                 if self.row_lifts.iter().any(|&(ri, _)| ri == i) { clip[1] = clip[1].max(r[1]); }
                 inherit_fade(&mut fade, &mut fade_origin, r, [0.0, 0.0, 0.0, mask * s]);
             }
-            let mut dy = pinh.dy;
+            let mut dy = pinh.dy + group_shift[1];
             let snap_off = pinh.snap.off || n.vis.no_pixel_snap || turn_index != 0;
             let mut snap_rigid = pinh.snap.rigid;
             if n.scroll.is_some()
@@ -1146,7 +1148,7 @@ impl<S: 'static> Runtime<S> {
                 snap_rigid[1] -= drawn;
                 if let Some(st) = self.scrolls.get_mut(&self.nodes[i].id) { (st.held, st.drawn[1]) = (held, drawn); }
             }
-            let (mut scale, mut anchor, mut anchor_to, mut dx) = (sc, anchor, anchor_to, pinh.dx);
+            let (mut scale, mut anchor, mut anchor_to, mut dx) = (sc, anchor, anchor_to, pinh.dx + group_shift[0]);
             if n.scroll_axes.x() && let Some(st) = self.scrolls.get_mut(&self.nodes[i].id) {
                 st.drawn[0] = grid(st.x.offset as f32, s);
                 dx -= st.drawn[0];
