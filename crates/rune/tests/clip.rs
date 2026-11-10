@@ -223,3 +223,31 @@ fn a_linear_fade_falls_in_proportion_to_distance_from_the_edge() {
     assert!(alpha(&eased, 100, 50, 89) < alpha(&lin, 100, 50, 89) - 20, "smoothstep stays lower near the edge");
     assert_eq!(alpha(&lin, 100, 50, 50), 255, "whole above the ramp");
 }
+
+#[test]
+fn a_fractional_fade_is_a_share_of_the_box_as_it_is_drawn() {
+    fn faded(tall: &bool, _: &mut Cx<bool>) -> El {
+        let h = if *tall { 200.0 } else { 100.0 };
+        // The root fills the window, so the faded box sits inside it at its own size.
+        col().size(100.0, 200.0).child(col().size(100.0, h).clip_fade_linear_frac(0.0, 0.0, 0.0, 0.25)
+            .child(el().size(100.0, h).fill(Color::WHITE)))
+    }
+    let gpu = Gpu::headless();
+    let bottom = |rt: &Runtime<bool>| rt.instances.iter().map(|i| rune::render::unpack_fade(i.fade).0[3]).find(|&w| w != 0.0);
+    let mut rt = Runtime::new(false, faded, (100.0, 200.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert_eq!(bottom(&rt), Some(-25.0), "a quarter of 100 points, linear");
+    let px = pixels(&gpu, &mut rt, (100, 200));
+    // Row `y` has its centre 99.5 - y in from the bottom edge: 12.5 of 25 is half.
+    let half = alpha(&px, 100, 50, 87);
+    assert!((f32::from(half) - 127.5).abs() <= 2.0, "half way down the ramp: {half}");
+    assert_eq!(alpha(&px, 100, 50, 70), 255, "whole above the ramp");
+    // The same view twice as tall fades twice as far, with no change to what the view asked for.
+    rt.update(|tall, _| *tall = true);
+    rt.frame(1.0);
+    assert_eq!(bottom(&rt), Some(-50.0), "a quarter of 200 points");
+    // At 2x the share is of the same box, in device pixels.
+    let mut retina = Runtime::new(false, faded, (100.0, 200.0), Env::new(true, 2.0));
+    retina.frame(0.0);
+    assert_eq!(bottom(&retina), Some(-50.0), "25 points at 2x");
+}

@@ -398,8 +398,10 @@ impl<S: 'static> Runtime<S> {
         origins[slot] = origin;
         let r = self.drawn[i].map(|v| v * self.env.scale);
         let r = [r[0], r[1], r[0] + r[2], r[1] + r[3]];
-        if let Some(clip) = n.vis.clip {
-            inherit_fade(&mut widths, &mut origins, r, clip.map(|v| v * self.inh_scratch[i].scale * self.env.scale));
+        let k = self.inh_scratch[i].scale * self.env.scale;
+        let box_pt = if k > 0.0 { [(r[2] - r[0]) / k, (r[3] - r[1]) / k] } else { [0.0; 2] };
+        if let Some(clip) = n.vis.clip_widths(box_pt) {
+            inherit_fade(&mut widths, &mut origins, r, clip.map(|v| v * k));
         }
         if self.row_mask[i] >= 0.0 {
             inherit_fade(&mut widths, &mut origins, r, [0.0, 0.0, 0.0, self.row_mask[i] * self.env.scale]);

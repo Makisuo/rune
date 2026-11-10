@@ -146,7 +146,7 @@ pub(super) fn paint(v: &Visual, size: (f32, f32), d: &mut Decls) {
     if let Some(g) = v.cold.gradient.as_deref() { layers.push(format!("linear-gradient({},{})", color(g[0]), color(g[1]))); }
     if v.fill.a > 0.0 { layers.push(color(v.fill)); }
     if !layers.is_empty() { d.push(("background", layers.join(","))); }
-    if let Some(clip) = v.cold.clip { mask(clip, d); }
+    if let Some(clip) = v.cold.clip_widths([size.0, size.1]) { mask(clip, d); }
     let r = v.radius;
     if r.iter().any(|&c| c > 0.0) {
         let value = if r.iter().all(|&c| c == r[0]) { px(r[0]) } else { r.map(px).join(" ") };

@@ -28,6 +28,9 @@ pub struct VisualCold {
     /// Soft clip of children to this rect: fade widths left, top, right, bottom. A negative
     /// width ramps linearly (`El::clip_fade_linear`).
     pub clip: Option<[f32; 4]>,
+    /// `clip`'s widths are shares of the box's own width and height, not points
+    /// (`El::clip_fade_linear_frac`).
+    pub(crate) clip_frac: bool,
     /// Rounded clip of this element and its subtree, applied after subtree filters.
     pub clip_radius: Option<f32>,
     /// Per-corner clip radii override (`[tl, tr, br, bl]`, in points).
@@ -93,6 +96,16 @@ pub struct VisualCold {
     pub(crate) flight_crop: bool,
 }
 
+impl VisualCold {
+    /// The soft clip's widths in points for a box `size` points big: `clip` as set, or its
+    /// shares of the box (`El::clip_fade_linear_frac`).
+    pub(crate) fn clip_widths(&self, size: [f32; 2]) -> Option<[f32; 4]> {
+        let c = self.clip?;
+        if !self.clip_frac { return Some(c); }
+        Some([c[0] * size[0], c[1] * size[1], c[2] * size[0], c[3] * size[1]])
+    }
+}
+
 impl Empty for VisualCold {
     const EMPTY: &'static Self = &VisualCold {
         surface: None,
@@ -103,6 +116,7 @@ impl Empty for VisualCold {
         shadows: Vec::new(),
         blur_motion: None,
         clip: None,
+        clip_frac: false,
         clip_radius: None,
         clip_corners: None,
         icon: None,

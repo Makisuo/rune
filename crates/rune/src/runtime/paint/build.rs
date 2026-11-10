@@ -1123,9 +1123,11 @@ impl<S: 'static> Runtime<S> {
                 self.marks.resize(self.instances.len(), mark);
             }
             // A scroll viewport clips its content with a hard edge unless it sets soft ones.
-            if let Some(f) = n.vis.clip.or(n.scroll.map(|_| [0.0; 4])) {
+            let k = sc * s;
+            let box_pt = if k > 0.0 { [(r[2] - r[0]) / k, (r[3] - r[1]) / k] } else { [0.0; 2] };
+            if let Some(f) = n.vis.clip_widths(box_pt).or(n.scroll.map(|_| [0.0; 4])) {
                 clip = intersect(r, clip);
-                let (own, origin) = self.scroll_edge_fade(i, f, r, sc * s, p.rect.edges()[3]);
+                let (own, origin) = self.scroll_edge_fade(i, f, r, k, p.rect.edges()[3]);
                 inherit_fade(&mut fade, &mut fade_origin, origin, own);
             }
             let mask = self.row_mask[i];

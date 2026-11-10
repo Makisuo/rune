@@ -1,0 +1,1 @@
+- `El::clip_fade_linear_frac(left, top, right, bottom)` is `clip_fade_linear` with each width a share of the box's own width or height, read when it is drawn, so the fade follows the box as it resizes: `0.05` at the bottom fades the last twentieth, as CSS `mask-image: linear-gradient(to bottom, black 95%, transparent)` does. A page export writes it as that mask.

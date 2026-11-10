@@ -318,13 +318,18 @@ impl El {
     }
     /// A scroll area's wrapper passes its clip to the viewport, beside which it draws the bar.
     fn set_clip(&mut self, clip: [f32; 4]) {
-        if self.vis.clip_to_content
+        self.set_clip_in(clip, false);
+    }
+    fn set_clip_in(&mut self, clip: [f32; 4], frac: bool) {
+        let cold = if self.vis.clip_to_content
             && let Some(viewport) = self.children.first_mut()
         {
-            viewport.vis.cold_mut().clip = Some(clip);
+            viewport.vis.cold_mut()
         } else {
-            self.vis.cold_mut().clip = Some(clip);
-        }
+            self.vis.cold_mut()
+        };
+        cold.clip = Some(clip);
+        cold.clip_frac = frac;
     }
     /// Clip children to this box with soft gradient edges (never a hard crop).
     pub fn clip_soft(mut self, fade: f32) -> Self {
@@ -364,6 +369,14 @@ impl El {
     /// runs straight into an edge, such as a transcript fading into the top of a composer.
     pub fn clip_fade_linear(mut self, left: f32, top: f32, right: f32, bottom: f32) -> Self {
         self.set_clip([left, top, right, bottom].map(|w| -w.max(0.0)));
+        self
+    }
+    /// [`Self::clip_fade_linear`] with each width a share of the box: of its width for left and
+    /// right, of its height for top and bottom, read when it is drawn, so the fade follows the
+    /// box as it resizes. `0.05` at the bottom fades the last twentieth, as CSS
+    /// `mask-image: linear-gradient(to bottom, black 95%, transparent)` does.
+    pub fn clip_fade_linear_frac(mut self, left: f32, top: f32, right: f32, bottom: f32) -> Self {
+        self.set_clip_in([left, top, right, bottom].map(|w| -w.clamp(0.0, 1.0)), true);
         self
     }
     /// Track hover for descendants' `group_*` styles (see [`Visual::hover_group`]).
