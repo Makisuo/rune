@@ -72,8 +72,9 @@ impl<S: 'static> Host<S> {
         // A missed frame's retry, or the timer pacing unpaced motion: input waits for it, and
         // `new_events` runs due timers meanwhile.
         if !resizing && l.backing_off(Instant::now()) { return; }
+        // A frame between display ticks waits for the next one (`claim`), as macOS's link does.
         #[cfg(target_os = "ios")]
-        if let Some(pacing) = &l.native.pacing { pacing.frame_started(); }
+        if !resizing && let Some(pacing) = &mut l.native.pacing && !pacing.claim(Instant::now()) { return; }
         // Starting the display link for a window that isn't on screen would wait for a tick that
         // sleeping displays never send, and a running link holds back its timers (`wake_deadline`).
         #[cfg(target_os = "macos")]

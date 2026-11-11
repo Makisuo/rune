@@ -3,6 +3,7 @@
 //! `CADisableMinimumFrameDurationOnPhone`), where a 60 Hz timer ignored the display.
 use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use objc2_foundation_video::{NSRunLoop, NSRunLoopCommonModes};
 use objc2_quartz_core::{CADisplayLink, CAFrameRateRange};
@@ -41,6 +42,8 @@ pub(crate) struct DisplayLink {
     link: Retained<CADisplayLink>,
     ticker: Retained<Ticker>,
     running: bool,
+    /// When the last frame drew while the link ran.
+    last_frame: Option<Instant>,
 }
 
 impl DisplayLink {
@@ -66,6 +69,7 @@ impl DisplayLink {
             link,
             ticker,
             running: false,
+            last_frame: None,
         })
     }
 
@@ -86,9 +90,19 @@ impl DisplayLink {
         true
     }
 
-    /// The frame drawing now used the tick that woke it: the next tick wakes another.
-    pub(crate) fn frame_started(&self) {
-        self.ticker.ivars().pending.store(false, Ordering::Release);
+    /// Whether a frame may draw now, claiming the tick that woke it: one did, or the link is
+    /// paused, or the last frame drew at least half a refresh ago. Otherwise (a touch's redraw
+    /// right after a tick's frame) the next tick draws it, so a refresh never draws two frames.
+    pub(crate) fn claim(&mut self, now: Instant) -> bool {
+        let ticks = self.ticker.ivars();
+        let ticked = ticks.pending.swap(false, Ordering::AcqRel);
+        let half = Duration::from_secs_f64(ticks.period.get() / 2.0);
+        let rested = self.last_frame.is_none_or(|last| now.saturating_duration_since(last) >= half);
+        let draws = ticked || !self.running || rested;
+        if draws && self.running {
+            self.last_frame = Some(now);
+        }
+        draws
     }
 
     pub(crate) fn stop(&mut self) {
@@ -96,7 +110,8 @@ impl DisplayLink {
             self.link.setPaused(true);
             self.running = false;
         }
-        self.frame_started();
+        self.ticker.ivars().pending.store(false, Ordering::Release);
+        self.last_frame = None;
     }
 }
 
