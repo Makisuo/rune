@@ -196,6 +196,11 @@ impl El {
         self.style.set_max_width(length(w));
         self
     }
+    /// Maximum width as a fraction of the parent's (CSS `max-width: 100%` is `.max_w_frac(1.0)`).
+    pub fn max_w_frac(mut self, f: f32) -> Self {
+        self.style.set_max_width(percent(f));
+        self
+    }
     /// Minimum height in points.
     ///
     /// Flex items default to a minimum of their content height (CSS `min-height: auto`), so a
