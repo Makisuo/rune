@@ -2,13 +2,17 @@
 //! button. It presses where it lands, so a tap clicks; dragging an element that drags
 //! (`El::on_drag`: a slider, a scroll bar) drags it; any other drag pans the scroll viewport
 //! under the finger (`runtime/scroll/touch.rs`), flinging it on with momentum, and cancels
-//! the press. Further fingers are ignored while one is down.
+//! the press. A finger held still on an element with a context menu (`on_secondary_press`)
+//! opens it, as a long-press fires `contextmenu` in a phone's browser, and its lift clicks
+//! nothing. Further fingers are ignored while one is down.
 use super::*;
 
 /// How far (points) a finger travels before its touch is a drag or a pan, not a tap.
 const TOUCH_SLOP: f32 = 8.0;
 /// A finger held this long (seconds) before lifting throws nothing.
 const FLING_HOLD: f64 = 0.1;
+/// A finger held still this long (seconds) is a long-press: UIKit's default.
+const LONG_PRESS: f64 = 0.5;
 
 /// A host's touch phase, as winit reports it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +42,9 @@ struct Finger {
     /// The vertical viewport under the finger, held until the pan picks its axis.
     scroll: Option<NodeId>,
     horizontal: bool,
+    /// When (on the runtime's clock) a finger still within the slop is a long-press; `None`
+    /// when nothing under it has a context menu.
+    long_press_at: Option<f64>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -46,6 +53,8 @@ enum Mode {
     Pending,
     Drag,
     Pan,
+    /// Held still until its context menu opened: the lift presses nothing.
+    LongPressed,
 }
 
 impl<S: 'static> Runtime<S> {
@@ -69,11 +78,16 @@ impl<S: 'static> Runtime<S> {
         let scroll = self.touch_scroll_start(x, y);
         self.pointer_move(x, y);
         self.pointer_down(x, y);
-        self.touch.finger = Some(Finger { id, origin: (x, y), last: 0.0, at: time, velocity: 0.0, mode: Mode::Pending, scroll, horizontal: false });
+        let long_press_at = self.secondary_target(x, y).is_some().then(|| {
+            let now = self.now_clock();
+            self.schedule_wakes_from(now, [std::time::Duration::from_secs_f64(LONG_PRESS)]);
+            now + LONG_PRESS
+        });
+        self.touch.finger = Some(Finger { id, origin: (x, y), last: 0.0, at: time, velocity: 0.0, mode: Mode::Pending, scroll, horizontal: false, long_press_at });
     }
 
     fn touch_move(&mut self, id: u64, x: f32, y: f32, time: f64) {
-        let Some(f) = self.touch.finger.as_ref().filter(|f| f.id == id) else { return };
+        let Some(f) = self.touch.finger.as_ref().filter(|f| f.id == id && f.mode != Mode::LongPressed) else { return };
         let (dx, dy) = (x - f.origin.0, y - f.origin.1);
         if f.mode == Mode::Pending && dx.hypot(dy) > TOUCH_SLOP {
             let (origin, scroll) = (f.origin, f.scroll);
@@ -95,6 +109,11 @@ impl<S: 'static> Runtime<S> {
 
     fn touch_up(&mut self, id: u64, x: f32, y: f32, time: f64, cancelled: bool) {
         let Some(f) = self.touch.finger.take_if(|f| f.id == id) else { return };
+        if f.mode == Mode::LongPressed {
+            self.touch_scroll_end(f.scroll, 0.0);
+            self.pointer_leave();
+            return;
+        }
         let pan = f.mode == Mode::Pan;
         let velocity = if pan && !cancelled && time - f.at < FLING_HOLD { f.velocity } else { 0.0 };
         self.touch_scroll_end(f.scroll, velocity);
@@ -110,6 +129,25 @@ impl<S: 'static> Runtime<S> {
         self.pointer_leave();
     }
 
+    /// A finger held still on an element with a context menu, not yet a long-press: the
+    /// window must not rest, so the frame at its deadline runs (`fire_long_press`).
+    pub(crate) fn long_press_waiting(&self) -> bool {
+        self.touch.finger.as_ref().is_some_and(|f| f.mode == Mode::Pending && f.long_press_at.is_some())
+    }
+
+    /// A finger held still past `LONG_PRESS` on an element with a context menu: the press it
+    /// began is cancelled and the menu opens where it landed, as a secondary click there would.
+    pub(crate) fn fire_long_press(&mut self) {
+        let now = self.clock;
+        let Some(f) = self.touch.finger.as_mut() else { return };
+        if f.mode != Mode::Pending || f.long_press_at.is_none_or(|at| now < at) { return; }
+        f.mode = Mode::LongPressed;
+        let (x, y) = f.origin;
+        self.cancel_pointer();
+        self.secondary_down(x, y);
+        self.secondary_up(x, y);
+    }
+
     /// Whether the held press is on an element that drags, so a finger drags it, not the page.
     fn press_drags(&self) -> bool {
         let Some((path, _)) = &self.capture else { return false };
@@ -123,13 +161,17 @@ mod tests {
     use crate::{ScrollSpec, col, el};
 
     #[derive(Default)]
-    struct S { taps: Vec<usize>, drags: Vec<f32> }
+    struct S { taps: Vec<usize>, drags: Vec<f32>, menus: Vec<usize> }
 
     fn view(_: &S, _: &mut Cx<S>) -> El {
         col().size(200.0, 300.0)
             .child(el().key("knob").size(200.0, 40.0).on_drag(|s: &mut S, d: &mut Drag, _| s.drags.push(d.dx)))
             .child(col().key("list").w_full().h(200.0).scroll(ScrollSpec { stick_bottom: false })
-                .children((0..30).map(|i| el().key(format!("row{i}")).w_full().h(40.0).on_press(move |s: &mut S| s.taps.push(i)))))
+                .children((0..30).map(|i| {
+                    let row = el().key(format!("row{i}")).w_full().h(40.0).on_press(move |s: &mut S| s.taps.push(i));
+                    // Odd rows have a context menu.
+                    if i % 2 == 1 { row.on_secondary_press(move |s: &mut S, _, _| s.menus.push(i)) } else { row }
+                })))
     }
 
     fn rig() -> Runtime<S> {
@@ -207,5 +249,45 @@ mod tests {
         rt.frame(1.0 / 60.0);
         assert!(rt.state.taps.is_empty());
         assert!(!rt.touching());
+    }
+
+    #[test]
+    fn a_finger_held_still_on_a_row_with_a_menu_opens_it_and_its_lift_clicks_nothing() {
+        let mut rt = rig();
+        // Row 1 (y 80..120) has a menu.
+        rt.touch(1, TouchPhase::Started, 100.0, 100.0, 0.0);
+        rt.touch(1, TouchPhase::Moved, 102.0, 101.0, 0.1);
+        rt.frame(0.3);
+        assert!(rt.state.menus.is_empty(), "not yet");
+        assert!(rt.wake_deadline().is_some(), "the long-press wakes the host when it is due");
+        assert!(!rt.rests(), "a resting window would only poll at that wake, and never fire it");
+        rt.frame(0.25);
+        assert_eq!(rt.state.menus, [1]);
+        rt.touch(1, TouchPhase::Ended, 102.0, 101.0, 0.7);
+        rt.frame(1.0 / 60.0);
+        assert!(rt.state.taps.is_empty(), "the lift after a long-press presses nothing");
+        assert_eq!(rt.state.menus, [1]);
+        assert!(!rt.touching());
+    }
+
+    #[test]
+    fn a_quick_tap_or_a_pan_on_a_row_with_a_menu_opens_no_menu() {
+        let mut rt = rig();
+        rt.touch(1, TouchPhase::Started, 100.0, 100.0, 0.0);
+        rt.touch(1, TouchPhase::Ended, 100.0, 100.0, 0.1);
+        rt.frame(0.1);
+        rt.frame(1.0);
+        assert_eq!(rt.state.taps, [1]);
+        swipe(&mut rt, (100.0, 180.0), -60.0, 5);
+        rt.frame(1.0);
+        assert!(rt.state.menus.is_empty());
+        // Held without a menu under it (row 2): nothing opens, and the lift still taps.
+        let mut rt = rig();
+        rt.touch(1, TouchPhase::Started, 100.0, 140.0, 0.0);
+        rt.frame(1.0);
+        rt.touch(1, TouchPhase::Ended, 100.0, 140.0, 1.0);
+        rt.frame(1.0 / 60.0);
+        assert!(rt.state.menus.is_empty());
+        assert_eq!(rt.state.taps, [2]);
     }
 }
