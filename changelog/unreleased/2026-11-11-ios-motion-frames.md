@@ -1,0 +1,1 @@
+- On iOS running motion advances: while a spring or transition moves, a frame timer wakes the run loop for the next frame, and it stops when the motion settles. A redraw asked for while UIKit draws was dropped, so motion stayed on its first frame until the next touch.

@@ -352,7 +352,11 @@ impl<S: 'static> Host<S> {
             // display shows them, so a timer paces the next frame instead of the loop.
             #[cfg(target_os = "macos")]
             if !l.native.pacing.as_mut().is_some_and(|p| p.start()) { l.retry = Some(now + TIMER_FRAME); }
-            #[cfg(not(target_os = "macos"))]
+            // UIKit queues a redraw asked for while it draws, but its run loop then sleeps until
+            // the next event, so the next frame would wait for a touch. A timer wakes it instead.
+            #[cfg(target_os = "ios")]
+            { l.retry = Some(now + TIMER_FRAME); }
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             l.window.request_redraw();
             self.meter.set_pacing(l.pacing_state(true));
         } else {
