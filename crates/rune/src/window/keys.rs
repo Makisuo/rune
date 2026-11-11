@@ -63,6 +63,8 @@ pub(crate) fn map_key(key: &WKey, m: ModifiersState) -> Option<KeyEvent> {
         WKey::Character(c) if mods.cmd && !(cfg!(target_os = "windows") && mods.ctrl && mods.alt) => {
             Key::Command(c.chars().next()?.to_ascii_lowercase())
         }
+        // A soft keyboard's return key (UIKit's `insertText:` of a newline) is Enter.
+        WKey::Character(c) if c == "\n" || c == "\r" => Key::Enter,
         WKey::Character(c) => Key::Text(c.to_string()),
         _ => return None,
     };

@@ -57,3 +57,11 @@ fn dvorak_paste_uses_the_logical_character_not_the_physical_period() {
     rt.frame(0.0);
     assert_eq!(rt.state.edit.text, "Dictated reply");
 }
+
+#[test]
+fn a_soft_keyboards_return_is_enter_not_a_newline() {
+    for newline in ["\n", "\r"] {
+        let ev = map_key(&WKey::Character(newline.into()), ModifiersState::empty()).unwrap();
+        assert_eq!(ev.key, Key::Enter);
+    }
+}
