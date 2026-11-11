@@ -1,0 +1,1 @@
+- `El::pin_insets` pins an element by edges in points or as fractions of the parent (`Inset::Frac(1.0)` is CSS `bottom: 100%`: a popover just above its parent, whatever height its content gives it).

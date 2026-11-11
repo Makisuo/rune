@@ -4,6 +4,14 @@
 
 use super::*;
 
+/// An edge of a pinned element ([`El::pin_insets`]): points, or a fraction of the parent's size
+/// along that edge's axis.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Inset {
+    Px(f32),
+    Frac(f32),
+}
+
 /// One grid track's size, as CSS writes it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GridTrack {

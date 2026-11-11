@@ -346,7 +346,7 @@ pub enum Align {
 }
 
 pub use crate::el::anchor::{Anchor, Side, anchor_rect};
-pub use crate::el::grid::GridTrack;
+pub use crate::el::grid::{GridTrack, Inset};
 pub use crate::el::text_spec::TextSpec;
 pub(crate) use crate::el::text_spec::Elide;
 

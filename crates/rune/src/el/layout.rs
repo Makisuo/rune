@@ -270,6 +270,17 @@ impl El {
         self.style.set_absolute_inset(Rect { left: edge(left), top: edge(top), right: edge(right), bottom: edge(bottom) });
         self
     }
+    /// [`pin`](Self::pin) with each edge in points or as a fraction of the parent's size
+    /// (CSS `bottom: 100%` is `Inset::Frac(1.0)`: a popover just above its parent).
+    pub fn pin_insets(mut self, left: Option<Inset>, top: Option<Inset>, right: Option<Inset>, bottom: Option<Inset>) -> Self {
+        let edge = |v: Option<Inset>| match v {
+            Some(Inset::Px(v)) => length(v),
+            Some(Inset::Frac(f)) => percent(f),
+            None => auto(),
+        };
+        self.style.set_absolute_inset(Rect { left: edge(left), top: edge(top), right: edge(right), bottom: edge(bottom) });
+        self
+    }
     /// The pointer's shape while it is over this element or a descendant that sets none.
     /// Applies while the pointer is over a hit target (a pressable, draggable, hoverable or
     /// text element) inside this one.
