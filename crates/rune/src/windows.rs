@@ -156,6 +156,10 @@ impl WindowOptions {
         if let Some((w, h)) = self.max_size { attrs = attrs.with_max_inner_size(LogicalSize::new(w, h)); }
         if let Some((x, y)) = self.position { attrs = attrs.with_position(PhysicalPosition::new(x, y)); }
         if let Some((w, h)) = self.physical_size { attrs = attrs.with_inner_size(PhysicalSize::new(w, h)); }
+        // A phone's window is its whole screen. UIKit would make a window of the asked size and
+        // leave the rest of the screen black; the root lays out at the size the window gets.
+        #[cfg(any(target_os = "ios", target_os = "android"))]
+        { attrs.inner_size = None; attrs.min_inner_size = None; attrs.max_inner_size = None; }
         attrs
     }
 }

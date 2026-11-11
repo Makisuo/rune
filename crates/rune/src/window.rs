@@ -680,6 +680,15 @@ pub(crate) fn sync_screen_origin<S: 'static>(rt: &mut Runtime<S>, window: &Windo
     screen_origin(window).is_some_and(|o| rt.set_window_origin(o))
 }
 
+/// The physical size a window's drawable and viewport take. On iOS that's the whole window,
+/// which `inner_size` (the safe area there) leaves short of; the safe area becomes insets.
+pub(crate) fn surface_size(window: &Window) -> winit::dpi::PhysicalSize<u32> {
+    #[cfg(target_os = "ios")]
+    return crate::platform::ios::surface_size(window);
+    #[cfg(not(target_os = "ios"))]
+    window.inner_size()
+}
+
 /// The scale an overlay draws at. On macOS, read from the panel AppKit shows, and before it's
 /// ordered in from the display holding most of its frame, where it will appear.
 pub(crate) fn backing_scale(window: &Window) -> f32 {

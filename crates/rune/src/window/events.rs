@@ -246,7 +246,7 @@ impl<S: 'static> Host<S> {
                 // until a window drag ends; resize the surface now when a drag crosses displays
                 // so top-left gravity never shows the old scale's drawable at half or double size.
                 if (scale - rt.env.scale).abs() > f32::EPSILON {
-                    let size = l.window.inner_size();
+                    let size = surface_size(&l.window);
                     if size.width > 0 && size.height > 0 {
                         l.resize_surface(&gpu.device, size);
                         rt.set_viewport((size.width as f32 / scale, size.height as f32 / scale), scale);
@@ -256,6 +256,8 @@ impl<S: 'static> Host<S> {
                 }
             }
             WindowEvent::Resized(size) => {
+                #[cfg(target_os = "ios")]
+                crate::platform::ios::sync_safe_area(&l.window);
                 sync_chrome(rt, l, chrome, titlebar);
                 let was_live = rt.live_visible();
                 rt.set_live_visible(l.visible && !l.occluded && size.width > 0 && size.height > 0 && !l.minimized());
@@ -304,7 +306,7 @@ impl<S: 'static> Host<S> {
                 #[cfg(target_os = "macos")]
                 if let Some(shadow) = &l.native.shadow { shadow.redraw(); }
                 let scale = scale_factor as f32;
-                let size = l.window.inner_size();
+                let size = surface_size(&l.window);
                 // Still the old scale's size: Windows resizes the window after this event.
                 #[cfg(target_os = "windows")]
                 let size = {

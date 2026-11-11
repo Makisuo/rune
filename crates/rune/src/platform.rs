@@ -8,6 +8,8 @@ pub(crate) mod display_link;
 pub mod embed;
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 pub(crate) mod layer_shell;
+#[cfg(any(target_os = "ios", test))]
+pub(crate) mod ios;
 #[cfg(target_os = "macos")]
 pub(crate) mod macos;
 #[cfg(target_os = "macos")]

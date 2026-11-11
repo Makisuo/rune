@@ -116,7 +116,9 @@ impl<S: 'static> Host<S> {
             }
         };
         let adapter = &gpu.as_ref().or(self.gpu.as_ref().map(|g| &g.0)).unwrap().adapter;
-        let phys = window.inner_size();
+        let phys = surface_size(&window);
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::sync_safe_area(&window);
         let (mut config, translucent) = surface_config(&surface, adapter, (phys.width, phys.height), self.rt.srgb_blend())
             .ok_or("the GPU adapter can't present to this window")?;
         #[cfg(target_os = "macos")]
@@ -228,7 +230,7 @@ impl<S: 'static> Host<S> {
         if let (Some(w), Some((gpu, ..))) = (self.win.as_mut(), self.gpu.as_ref()) {
             #[cfg(target_os = "macos")]
             if let Some(pacing) = &mut w.native.pacing { pacing.update_display(&w.window); }
-            let size = w.window.inner_size();
+            let size = surface_size(&w.window);
             let scale = w.window.scale_factor() as f32;
             if size.width > 0 && size.height > 0 {
                 w.resize_surface(&gpu.device, size);

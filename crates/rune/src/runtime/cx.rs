@@ -193,12 +193,15 @@ impl<S> Cx<S> {
     pub fn focus_color(&self) -> Color {
         self.system_accent.focus(self.env.system_dark)
     }
-    /// Browser safe-area insets in points, in top/right/bottom/left order. Zero on native.
+    /// Safe-area insets in points, in top/right/bottom/left order: the browser's on the web,
+    /// the status bar, sensor housing and home indicator on iOS, zero on other native hosts.
     /// Apply these inside a full-canvas root so backgrounds can extend to the screen edges.
     pub fn safe_area(&self) -> [f32; 4] {
         #[cfg(target_arch = "wasm32")]
         { crate::platform::web::safe_area() }
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(target_os = "ios")]
+        { crate::platform::ios::safe_area() }
+        #[cfg(not(any(target_arch = "wasm32", target_os = "ios")))]
         { [0.0; 4] }
     }
     /// The host's OS accessibility preference, independent of this commit's override.

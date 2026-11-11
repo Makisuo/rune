@@ -1,0 +1,1 @@
+- On iOS (and Android) a window covers its whole screen whatever `AppSpec`'s size asks: the root lays out and draws at the size UIKit gives the window, edge to edge, instead of in a window of the asked size with the rest of the screen black. `Cx::safe_area` reports the status bar, sensor housing and home indicator insets on iOS.
