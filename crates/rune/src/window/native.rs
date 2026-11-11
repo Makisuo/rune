@@ -42,6 +42,13 @@ pub(super) struct Native {
     pub(super) frame: Option<crate::platform::win32::CustomFrame>,
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows", all(unix, not(target_os = "ios"), not(target_os = "android")))))]
+#[cfg(target_os = "ios")]
+#[derive(Default)]
+pub(super) struct Native {
+    /// Wakes the loop on each display refresh while motion runs.
+    pub(super) pacing: Option<crate::platform::ios_display_link::DisplayLink>,
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "ios", all(unix, not(target_os = "android")))))]
 #[derive(Default)]
 pub(super) struct Native;

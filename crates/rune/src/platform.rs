@@ -10,6 +10,8 @@ pub mod embed;
 pub(crate) mod layer_shell;
 #[cfg(any(target_os = "ios", test))]
 pub(crate) mod ios;
+#[cfg(target_os = "ios")]
+pub(crate) mod ios_display_link;
 #[cfg(target_os = "macos")]
 pub(crate) mod macos;
 #[cfg(target_os = "macos")]

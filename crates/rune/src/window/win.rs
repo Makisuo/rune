@@ -256,17 +256,17 @@ impl Win {
 
     /// The display link's next tick after `now`, while it runs.
     pub(super) fn next_tick(&self, now: Instant) -> Option<Instant> {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         return self.native.pacing.as_ref().filter(|p| p.running()).map(|p| now + Duration::from_secs_f64(1.0 / p.refresh_hz()));
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         { let _ = now; None }
     }
 
     /// Whether the display link drives redraws. Other platforms redraw on request.
     pub(super) fn paced(&self) -> bool {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         return self.native.pacing.as_ref().is_some_and(|p| p.running());
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         false
     }
 
@@ -284,7 +284,13 @@ impl Win {
     pub(super) fn pacing_state(&self, moving: bool) -> Pacing {
         #[cfg(target_os = "macos")]
         return crate::platform::display_link::pacing(self.native.pacing.as_ref(), moving);
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "ios")]
+        return match &self.native.pacing {
+            Some(link) if link.running() => Pacing::DisplayLink,
+            _ if moving => Pacing::Unpaced,
+            _ => Pacing::Idle,
+        };
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         if moving { Pacing::Vsync } else { Pacing::Idle }
     }
 
@@ -306,7 +312,7 @@ impl Win {
     }
 
     pub(super) fn stop_pacing(&mut self) {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         if let Some(pacing) = &mut self.native.pacing { pacing.stop(); }
         #[cfg(target_os = "macos")]
         self.present_with_transaction(false);

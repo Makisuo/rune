@@ -121,6 +121,11 @@ wgpu-naga-bridge = { version = "~30.0.1", optional = true }
 wgpu = { version = "~30.0.1", default-features = false, features = ["custom"] }
 objc2-foundation-video = { package = "objc2-foundation", version = "0.3", default-features = false, features = ["std", "NSArray", "NSData", "NSDictionary", "NSError", "NSObject", "NSRange", "NSString", "NSURL", "NSURLConnection", "NSURLRequest", "NSURLResponse"] }
 
+# iOS's display link, which paces motion at the screen's rate (`platform::ios_display_link`).
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std", "CADisplayLink", "CAFrameRateRange", "objc2-core-foundation"] }
+objc2-foundation-video = { package = "objc2-foundation", version = "0.3", default-features = false, features = ["std", "NSObjCRuntime", "NSRunLoop", "NSString"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 accesskit_macos = { version = "0.27.2", optional = true }
 # Names for the interaction watchdog's stack samples (`tooling::interaction::stack`).

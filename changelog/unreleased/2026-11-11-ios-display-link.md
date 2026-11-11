@@ -1,0 +1,1 @@
+- On iOS running motion is paced by a display link: each display refresh wakes the loop for the next frame, at the screen's rate (120 Hz on ProMotion with the app's `CADisableMinimumFrameDurationOnPhone`), where a 60 Hz timer ignored the display and slipped past refreshes.

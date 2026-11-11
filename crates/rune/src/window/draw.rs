@@ -72,6 +72,8 @@ impl<S: 'static> Host<S> {
         // A missed frame's retry, or the timer pacing unpaced motion: input waits for it, and
         // `new_events` runs due timers meanwhile.
         if !resizing && l.backing_off(Instant::now()) { return; }
+        #[cfg(target_os = "ios")]
+        if let Some(pacing) = &l.native.pacing { pacing.frame_started(); }
         // Starting the display link for a window that isn't on screen would wait for a tick that
         // sleeping displays never send, and a running link holds back its timers (`wake_deadline`).
         #[cfg(target_os = "macos")]
@@ -352,10 +354,14 @@ impl<S: 'static> Host<S> {
             // display shows them, so a timer paces the next frame instead of the loop.
             #[cfg(target_os = "macos")]
             if !l.native.pacing.as_mut().is_some_and(|p| p.start()) { l.retry = Some(now + TIMER_FRAME); }
-            // UIKit queues a redraw asked for while it draws, but its run loop then sleeps until
-            // the next event, so the next frame would wait for a touch. A timer wakes it instead.
+            // UIKit drops a redraw asked for while it draws, and its run loop then sleeps until
+            // the next event: the display link wakes it for the next frame instead, on the
+            // display's refresh (a timer where the link cannot be made).
             #[cfg(target_os = "ios")]
-            { l.retry = Some(now + TIMER_FRAME); }
+            {
+                if l.native.pacing.is_none() { l.native.pacing = crate::platform::ios_display_link::DisplayLink::new(self.frame_wake.clone()); }
+                if !l.native.pacing.as_mut().is_some_and(|p| p.start()) { l.retry = Some(now + TIMER_FRAME); }
+            }
             #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             l.window.request_redraw();
             self.meter.set_pacing(l.pacing_state(true));
@@ -376,7 +382,7 @@ impl<S: 'static> Host<S> {
 
 /// The window's display refresh: its display link's on macOS, else the monitor's.
 fn display_hz(l: &Win) -> Option<f64> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     if let Some(pacing) = &l.native.pacing { return Some(pacing.refresh_hz()); }
     l.window.current_monitor().and_then(|m| m.refresh_rate_millihertz()).map(|hz| hz as f64 / 1000.0)
 }

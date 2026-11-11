@@ -393,7 +393,8 @@ struct Host<S: 'static> {
     /// Present times of every window this host opens while tracing.
     #[cfg(target_os = "macos")]
     present_log: Option<Arc<crate::frame::present_time::metal::Log>>,
-    #[cfg(target_os = "macos")]
+    /// What a display link's tick sends: a `DisplayTick` for this host (macOS and iOS).
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     frame_wake: Waker,
 }
 
@@ -410,7 +411,7 @@ impl<S: 'static> Host<S> {
         crate::native_menu::install_standard_menus(app.standard_menus);
         native_handle.bind(proxy.clone(), slot);
         let live_proxy = proxy.clone();
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         let frame_proxy = proxy.clone();
         let waker: Waker = Arc::new(move || {
             let _ = proxy.send_event(WakeEvent::App(slot));
@@ -531,7 +532,7 @@ impl<S: 'static> Host<S> {
             meter,
             #[cfg(target_os = "macos")]
             present_log,
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             frame_wake: Arc::new(move || { let _ = frame_proxy.send_event(WakeEvent::DisplayTick(slot)); }),
         }
     }
