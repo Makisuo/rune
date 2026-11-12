@@ -219,6 +219,31 @@ mod tests {
     }
 
     #[test]
+    fn scroll_by_keeps_a_dragging_finger_and_a_fling() {
+        let mut rt = rig();
+        rt.touch(1, TouchPhase::Started, 100.0, 220.0, 0.0);
+        rt.touch(1, TouchPhase::Moved, 100.0, 170.0, 0.01);
+        rt.frame(1.0 / 60.0);
+        assert_eq!(offset(&rt), 50.0);
+        // Content grew above the view: the app shifts the list, and the drag goes on from there.
+        rt.update(|_, tx| tx.scroll_by("list", 100.0));
+        rt.frame(1.0 / 60.0);
+        assert_eq!(offset(&rt), 150.0);
+        rt.touch(1, TouchPhase::Moved, 100.0, 160.0, 0.02);
+        rt.frame(1.0 / 60.0);
+        assert_eq!(offset(&rt), 160.0, "the finger carries on from the shifted offset");
+        rt.touch(1, TouchPhase::Moved, 100.0, 120.0, 0.03);
+        rt.touch(1, TouchPhase::Ended, 100.0, 120.0, 0.035);
+        rt.frame(1.0 / 60.0);
+        let flung = offset(&rt);
+        rt.update(|_, tx| tx.scroll_by("list", -40.0));
+        rt.frame(1.0 / 60.0);
+        let shifted = offset(&rt);
+        for _ in 0..10 { rt.frame(1.0 / 60.0); }
+        assert!(offset(&rt) > shifted + 20.0, "the fling coasts on: {} after {shifted} ({flung})", offset(&rt));
+    }
+
+    #[test]
     fn a_finger_held_still_before_lifting_throws_nothing() {
         let mut rt = rig();
         rt.touch(1, TouchPhase::Started, 100.0, 200.0, 0.0);

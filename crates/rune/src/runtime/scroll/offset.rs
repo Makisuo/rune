@@ -92,6 +92,29 @@ impl<S: 'static> Runtime<S> {
         }
     }
 
+    /// `Tx::scroll_by`: shifts each viewport's vertical offset by its distance, keeping its
+    /// momentum, a glide's speed and a finger's hold (the drag goes on from the shifted offset).
+    pub(super) fn scroll_by_offsets(&mut self, shifts: Vec<(String, f32)>) {
+        // This frame's commit may have changed the content: measure the extent first.
+        self.step_scroll(0.0);
+        for (key, dy) in shifts {
+            let Some(i) = self.scroll_viewport_on(&key, false, true) else { continue };
+            let id = self.nodes[i].id;
+            let stick = self.nodes[i].scroll.is_some_and(|s| s.stick_bottom);
+            let Some(st) = self.scrolls.get_mut(&id) else { continue };
+            let was = st.offset;
+            // Past an end (a rubber band) it moves as far, and the band springs back from there.
+            let to = was + f64::from(dy);
+            st.offset = if (0.0..=st.max).contains(&was) { to.clamp(0.0, st.max) } else { to };
+            let moved = st.offset - was;
+            if moved.abs() <= 1e-3 { continue; }
+            if let Some(glide_to) = &mut st.glide_to { *glide_to += moved; }
+            st.pinned = stick && st.offset >= st.max - 0.5;
+            st.nudged = NUDGE_FRAMES;
+            if let Some(t) = self.touch.scroll.as_mut().filter(|t| t.id == id && !t.horizontal) { t.origin += moved; }
+        }
+    }
+
     fn apply_jumps(&mut self, jumps: &[(NodeId, bool, f64)]) {
         for &(id, horizontal, to) in jumps {
             let stick = self.nodes.iter().find(|n| n.id == id).and_then(|n| n.scroll).is_some_and(|s| s.stick_bottom);

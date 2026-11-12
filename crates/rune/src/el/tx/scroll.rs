@@ -99,6 +99,16 @@ impl Tx {
     pub fn scroll_to_instant(&mut self, key: impl Into<String>, x: f32, y: f32) {
         self.scroll_offsets.push(crate::runtime::ScrollRequest { key: key.into(), x: Some(x), y: Some(y), glide: None, anchor: false });
     }
+    /// Shift the vertical scroll viewport keyed `key` (or the nearest one containing it) by `dy`
+    /// points from wherever it is when the frame applies it, clamped to its content, as CSS
+    /// scroll anchoring does when content above the view changes size. Unlike
+    /// [`Tx::scroll_to_instant`] it keeps what is moving the viewport: a finger dragging it
+    /// carries on from the shifted offset, and momentum or a glide keeps its speed. An app that
+    /// keeps its own anchor sends the distance its anchor row moved, which stays right however
+    /// far the viewport scrolled since the app last heard where it was.
+    pub fn scroll_by(&mut self, key: impl Into<String>, dy: f32) {
+        self.scroll_shifts.push((key.into(), dy));
+    }
     /// Move the vertical scroll viewport around the element or [`crate::TextHighlight`] keyed
     /// `key` so its top sits `at` points below the viewport's top, clamped to the content's ends:
     /// a page that opens on a heading lands it just under its bar. It's placed from the layout of the commit this
