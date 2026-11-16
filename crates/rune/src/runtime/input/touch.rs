@@ -11,6 +11,14 @@ use super::*;
 const TOUCH_SLOP: f32 = 8.0;
 /// A finger held this long (seconds) before lifting throws nothing.
 const FLING_HOLD: f64 = 0.1;
+/// How far back (seconds) from its last move a lift's velocity looks, and the gap between two
+/// moves that means the finger stopped in between: Flutter's `VelocityTracker` horizon and
+/// assume-stopped time. The last two moves alone are noise: a finger slows in the frame it lifts,
+/// and a move it repeats in place reads as standing still, so a swipe would throw nothing.
+const VELOCITY_HORIZON: f64 = 0.1;
+const VELOCITY_GAP: f64 = 0.04;
+/// Moves kept for the lift's velocity: well over the horizon's worth at 120 Hz.
+const VELOCITY_SAMPLES: usize = 24;
 /// A finger held still this long (seconds) is a long-press: UIKit's default.
 const LONG_PRESS: f64 = 0.5;
 
@@ -34,10 +42,10 @@ pub(super) struct Touch {
 struct Finger {
     id: u64,
     origin: (f32, f32),
-    last: f32,
+    /// When it last moved.
     at: f64,
-    /// Points per second along the pan's axis.
-    velocity: f32,
+    /// Its latest moves, oldest first: `(time, x, y)`.
+    samples: std::collections::VecDeque<(f64, f32, f32)>,
     mode: Mode,
     /// The vertical viewport under the finger, held until the pan picks its axis.
     scroll: Option<NodeId>,
@@ -83,7 +91,7 @@ impl<S: 'static> Runtime<S> {
             self.schedule_wakes_from(now, [std::time::Duration::from_secs_f64(LONG_PRESS)]);
             now + LONG_PRESS
         });
-        self.touch.finger = Some(Finger { id, origin: (x, y), last: 0.0, at: time, velocity: 0.0, mode: Mode::Pending, scroll, horizontal: false, long_press_at });
+        self.touch.finger = Some(Finger { id, origin: (x, y), at: time, samples: std::collections::VecDeque::from([(time, x, y)]), mode: Mode::Pending, scroll, horizontal: false, long_press_at });
     }
 
     fn touch_move(&mut self, id: u64, x: f32, y: f32, time: f64) {
@@ -97,9 +105,9 @@ impl<S: 'static> Runtime<S> {
         }
         let f = self.touch.finger.as_mut().unwrap();
         let along = if f.horizontal { dx } else { dy };
-        let dt = time - f.at;
-        if dt > 0.0 { f.velocity = (along - f.last) / dt as f32; }
-        (f.last, f.at) = (along, time);
+        if f.samples.len() == VELOCITY_SAMPLES { f.samples.pop_front(); }
+        f.samples.push_back((time, x, y));
+        f.at = time;
         match (f.mode, f.scroll) {
             (Mode::Pan, Some(scroll)) => self.touch_scroll_move(scroll, along),
             (Mode::Drag, _) => self.pointer_move(x, y),
@@ -115,7 +123,7 @@ impl<S: 'static> Runtime<S> {
             return;
         }
         let pan = f.mode == Mode::Pan;
-        let velocity = if pan && !cancelled && time - f.at < FLING_HOLD { f.velocity } else { 0.0 };
+        let velocity = if pan && !cancelled && time - f.at < FLING_HOLD { release_velocity(&f.samples, f.horizontal) } else { 0.0 };
         self.touch_scroll_end(f.scroll, velocity);
         if cancelled {
             self.cancel_pointer();
@@ -153,6 +161,23 @@ impl<S: 'static> Runtime<S> {
         let Some((path, _)) = &self.capture else { return false };
         self.live_index(path).is_some_and(|i| self.nodes[i].handlers.on_drag.is_some() && !self.drags_out(&self.nodes[i]))
     }
+}
+
+/// Points per second along the pan's axis as the finger lifts: the least-squares slope of its
+/// moves within `VELOCITY_HORIZON` of the last one, back to the first gap of `VELOCITY_GAP`.
+fn release_velocity(samples: &std::collections::VecDeque<(f64, f32, f32)>, horizontal: bool) -> f32 {
+    let Some(&(newest, ..)) = samples.back() else { return 0.0 };
+    let (mut n, mut st, mut sp, mut stt, mut stp) = (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    let mut previous = newest;
+    for &(time, x, y) in samples.iter().rev() {
+        if newest - time > VELOCITY_HORIZON || previous - time > VELOCITY_GAP { break; }
+        previous = time;
+        let (t, p) = (time - newest, f64::from(if horizontal { x } else { y }));
+        (n, st, sp, stt, stp) = (n + 1.0, st + t, sp + p, stt + t * t, stp + t * p);
+    }
+    let spread = n * stt - st * st;
+    if n < 2.0 || spread <= 1e-12 { return 0.0; }
+    ((n * stp - st * sp) / spread) as f32
 }
 
 #[cfg(test)]
@@ -241,6 +266,32 @@ mod tests {
         let shifted = offset(&rt);
         for _ in 0..10 { rt.frame(1.0 / 60.0); }
         assert!(offset(&rt) > shifted + 20.0, "the fling coasts on: {} after {shifted} ({flung})", offset(&rt));
+    }
+
+    #[test]
+    fn a_swipe_whose_last_move_repeats_in_place_still_flings() {
+        let mut rt = rig();
+        rt.touch(1, TouchPhase::Started, 100.0, 220.0, 0.0);
+        for i in 1..=6 { rt.touch(1, TouchPhase::Moved, 100.0, 220.0 - 20.0 * i as f32, i as f64 * 0.008); }
+        // The frame it lifts in, the finger reports where it already was.
+        rt.touch(1, TouchPhase::Moved, 100.0, 100.0, 0.056);
+        rt.touch(1, TouchPhase::Ended, 100.0, 100.0, 0.06);
+        rt.frame(1.0 / 60.0);
+        let lifted = offset(&rt);
+        for _ in 0..20 { rt.frame(1.0 / 60.0); }
+        assert!(offset(&rt) > lifted + 100.0, "the list coasts on: {} after {lifted}", offset(&rt));
+    }
+
+    #[test]
+    fn a_swipe_that_slows_as_it_lifts_flings_at_its_recent_speed() {
+        let mut rt = rig();
+        rt.touch(1, TouchPhase::Started, 100.0, 220.0, 0.0);
+        for i in 1..=6 { rt.touch(1, TouchPhase::Moved, 100.0, 220.0 - 20.0 * i as f32, i as f64 * 0.008); }
+        rt.touch(1, TouchPhase::Moved, 100.0, 99.0, 0.056);
+        rt.touch(1, TouchPhase::Ended, 100.0, 99.0, 0.06);
+        let id = rt.nodes.iter().find(|n| n.key.as_deref() == Some("list")).unwrap().id;
+        let v = rt.scrolls[&id].v;
+        assert!(v > 1500.0, "the throw keeps most of the swipe's 2500 pt/s: {v}");
     }
 
     #[test]
