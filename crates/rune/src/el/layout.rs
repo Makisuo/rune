@@ -245,6 +245,13 @@ impl El {
         self.style.set_min_width(length(0.0));
         self
     }
+    /// The size along the parent's main axis that growing and shrinking start from, in points
+    /// (CSS `flex-basis`), and that a wrapping row breaks its lines by. Call after [`grow`](Self::grow),
+    /// which starts from zero.
+    pub fn basis(mut self, px: f32) -> Self {
+        self.style.set_flex_basis(length(px));
+        self
+    }
     /// Lay children out in `n` equal columns, each as wide as the widest child needs (CSS
     /// `grid-template-columns: repeat(n, 1fr)`), or sharing the width the element is given.
     /// Children fill the cells in order unless placed with `grid_cell`.
