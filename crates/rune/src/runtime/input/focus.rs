@@ -183,7 +183,7 @@ impl<S: 'static> Runtime<S> {
     }
     pub(super) fn set_focus(&mut self, path: Option<String>, keyboard: bool) -> bool {
         self.input_click.on_focus_change(path.as_deref());
-        if self.focused != path { self.ime_area = None; self.ime_reset = true; self.blur_links(); self.hover_focus = false; }
+        if self.focused != path { self.ime_area = None; self.ime_app = false; self.ime_reset = true; self.blur_links(); self.hover_focus = false; }
         // Tabbing away or into a field takes the selection's keyboard; a hovered row doesn't.
         if self.focused != path
             && let Some(p) = path.as_deref()

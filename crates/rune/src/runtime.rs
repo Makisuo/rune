@@ -661,6 +661,9 @@ pub struct Runtime<S: 'static> {
     help: help::HelpState,
     /// The shell cancels native composition before enabling the new text focus.
     pub(crate) ime_reset: bool,
+    /// `ime_area` is an `El::ime_cursor` surface's (an app's own editor), not a field's caret.
+    #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+    pub(crate) ime_app: bool,
     /// Text the focused field asked to copy (the shell writes it to the clipboard).
     pub copy_request: Option<crate::ClipboardWrite>,
     // Outer None: no read; inner None: app-level paste rather than a focused editor.
@@ -998,6 +1001,7 @@ impl<S: 'static> Runtime<S> {
             help: Default::default(),
             help_delay: 0.5,
             ime_reset: false,
+            ime_app: false,
             copy_request: None,
             paste_request: None,
             read_requests: Vec::new(),

@@ -45,6 +45,9 @@ pub(super) enum Action {
     Wheel(u64, Vec<String>, crate::WheelEvent),
     Gesture(Vec<String>, gesture_dispatch::Gesture),
     Ime(Ime),
+    /// The focused field's whole text and selection (byte anchor, focus) as a platform text
+    /// view holds them after an edit: iOS's text proxy (`platform/ios_text.rs`).
+    PlatformText(String, usize, usize),
     Paste(crate::ClipboardContent, Option<Option<String>>),
     /// A `Tx::read_clipboard` callback's id and what the clipboard held.
     ClipboardRead(u64, crate::ClipboardContent),
@@ -155,7 +158,7 @@ fn handler_name(action: &Action) -> &'static str {
         Action::VisibleRows(..) => "on_visible_rows",
         Action::ScreenLayout(..) => "on_screen_layout",
         Action::Files(_) => "on_drop_files",
-        Action::Ime(_) => "a text input's edit",
+        Action::Ime(_) | Action::PlatformText(..) => "a text input's edit",
         Action::Paste(..) => "on_paste",
         Action::ClipboardRead(..) => "a `read_clipboard` callback",
         Action::FileDialog(..) => "a file dialog callback",
@@ -453,6 +456,7 @@ impl<S: 'static> Runtime<S> {
             Action::Wheel(gesture, chain, ev) => self.run_wheel(gesture, chain, ev, &mut one),
             Action::Gesture(chain, gesture) => self.run_gesture(chain, gesture, &mut one),
             Action::Ime(ev) => self.run_ime(ev, &mut one),
+            Action::PlatformText(text, anchor, focus) => self.run_platform_text(&text, anchor, focus, &mut one),
             Action::Paste(content, target) => {
                 if target.is_some_and(|target| target != self.paste_target()) { return false; }
                 let hook = self.focused_input().and_then(|i| i.paste.clone());

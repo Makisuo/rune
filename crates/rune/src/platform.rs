@@ -12,6 +12,8 @@ pub(crate) mod layer_shell;
 pub(crate) mod ios;
 #[cfg(target_os = "ios")]
 pub(crate) mod ios_display_link;
+#[cfg(target_os = "ios")]
+pub(crate) mod ios_text;
 #[cfg(target_os = "macos")]
 pub(crate) mod macos;
 #[cfg(target_os = "macos")]
@@ -23,6 +25,8 @@ pub(crate) mod preferences;
 pub(crate) mod ready_signal;
 pub(crate) mod reopen;
 pub(crate) mod scroll_bars;
+#[cfg(any(target_os = "ios", test))]
+pub(crate) mod utf16;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 #[cfg(any(target_arch = "wasm32", test))]

@@ -281,6 +281,49 @@ impl<S: 'static> Runtime<S> {
         self.queue.push(Action::Ime(ev));
     }
 
+    /// Queues what a platform text view (iOS's text proxy, `platform/ios_text.rs`) holds after
+    /// an edit: the focused field's whole text and its selection as byte offsets in it. The
+    /// field takes the difference as typed (its change handlers run), then the selection.
+    #[cfg_attr(not(any(target_os = "ios", test)), allow(dead_code))]
+    pub(crate) fn platform_text(&mut self, text: String, anchor: usize, focus: usize) {
+        self.queue.push(Action::PlatformText(text, anchor, focus));
+    }
+
+    /// The focused text field's text and selection (byte anchor, focus), for a platform text
+    /// view that mirrors it. None without one, for a field whose editor is not focused, or for
+    /// a secure field, whose text stays here.
+    #[cfg_attr(not(any(target_os = "ios", test)), allow(dead_code))]
+    pub(crate) fn focused_text(&mut self) -> Option<(String, usize, usize)> {
+        let input = self.focused_input()?;
+        if input.edit.is_secure() { return None; }
+        let edit = match input.access.clone() {
+            Some(access) => &*access(states!(self)),
+            None => &self.focused_input()?.edit,
+        };
+        // The field's own flag, as its caret and `ime_area` follow: an app clears it on blur.
+        if edit.is_secure() || !edit.focused { return None; }
+        let (start, end) = edit.range();
+        let (anchor, focus) = if edit.anchor <= edit.focus { (start, end) } else { (end, start) };
+        Some((edit.text.clone(), anchor, focus))
+    }
+
+    /// Runs [`Self::platform_text`]: the smallest replacement from the field's text to `text`,
+    /// as a paste of what changed, then `text`'s selection when the field took it as is.
+    pub(super) fn run_platform_text(&mut self, text: &str, anchor: usize, focus: usize, tx: &mut Tx) -> bool {
+        #[cfg(target_os = "ios")]
+        crate::platform::ios_text::applied();
+        self.with_focused(|e| {
+            let mut out = crate::edit::EditOutcome::default();
+            if let Some((start, old_end, new_end)) = text_change(&e.text, text) {
+                e.preedit = None;
+                e.set_selection(start, old_end);
+                out = e.paste(&text[start..new_end]);
+            }
+            if e.text == text { e.set_selection(anchor, focus); }
+            out
+        }, tx)
+    }
+
     /// End native composition on window deactivation without discarding text or field focus.
     pub fn cancel_composition(&mut self) {
         self.ime(Ime::Preedit(String::new(), None));
@@ -342,3 +385,19 @@ impl<S: 'static> Runtime<S> {
         self.focused.as_deref()
     }
 }
+
+/// What changed from `old` to `new`: the byte range `start..old_end` of `old` that
+/// `new[start..new_end]` replaces, on character boundaries. None when they are equal.
+pub(crate) fn text_change(old: &str, new: &str) -> Option<(usize, usize, usize)> {
+    if old == new { return None; }
+    let mut start = old.bytes().zip(new.bytes()).take_while(|(a, b)| a == b).count();
+    while !old.is_char_boundary(start) || !new.is_char_boundary(start) { start -= 1; }
+    let max = old.len().min(new.len()) - start;
+    let mut tail = old.bytes().rev().zip(new.bytes().rev()).take(max).take_while(|(a, b)| a == b).count();
+    while !old.is_char_boundary(old.len() - tail) || !new.is_char_boundary(new.len() - tail) { tail -= 1; }
+    Some((start, old.len() - tail, new.len() - tail))
+}
+
+#[cfg(test)]
+#[path = "../platform_text_tests.rs"]
+mod platform_text_tests;

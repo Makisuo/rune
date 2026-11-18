@@ -372,7 +372,7 @@ impl<S: 'static> Host<S> {
                 sync_chrome(rt, l, chrome, titlebar);
                 if !focused {
                     rt.cancel_composition();
-                    l.window.set_ime_allowed(false);
+                    super::platform_sync::set_ime(&l.window, false);
                     self.ime_allowed = false;
                     // A minimized or occluded window skips redraw.
                     l.apply_cursor(rt, false);
@@ -381,10 +381,11 @@ impl<S: 'static> Host<S> {
                 } else {
                     let ime_allowed = rt.ime_area.is_some() && !rt.has_secure_focus();
                     if std::mem::take(&mut rt.ime_reset) || ime_allowed != self.ime_allowed {
-                        l.window.set_ime_allowed(false);
-                        l.window.set_ime_allowed(ime_allowed);
+                        super::platform_sync::reset_ime(&l.window, ime_allowed);
                         self.ime_allowed = ime_allowed;
                     }
+                    #[cfg(target_os = "ios")]
+                    crate::platform::ios_text::sync(&l.window, rt);
                     if let Some(a) = rt.ime_area {
                         l.window.set_ime_cursor_area(
                             LogicalPosition::new(a[0] as f64, a[1] as f64),

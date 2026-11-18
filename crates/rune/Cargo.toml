@@ -123,6 +123,8 @@ objc2-foundation-video = { package = "objc2-foundation", version = "0.3", defaul
 
 # iOS's display link, which paces motion at the screen's rate (`platform::ios_display_link`).
 [target.'cfg(target_os = "ios")'.dependencies]
+# The text proxy's `UITextView` (`platform/ios_text.rs`).
+objc2-ui-kit = "0.3"
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std", "CADisplayLink", "CAFrameRateRange", "objc2-core-foundation"] }
 objc2-foundation-video = { package = "objc2-foundation", version = "0.3", default-features = false, features = ["std", "NSObjCRuntime", "NSRunLoop", "NSString"] }
 

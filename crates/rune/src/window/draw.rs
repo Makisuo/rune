@@ -63,6 +63,9 @@ impl<S: 'static> Host<S> {
     /// Draws a frame. `resizing` draws one for a size the user just dragged the window to, at
     /// once: AppKit shows the new size when the event returns, with or without it.
     pub(super) fn draw(&mut self, resizing: bool) {
+        // What iOS's text proxy did since the last frame reaches the field in this one.
+        #[cfg(target_os = "ios")]
+        crate::platform::ios_text::drain(&mut self.rt);
         let launcher = self.launcher();
         let (Some(l), Some(_)) = (self.win.as_mut(), self.gpu.as_ref()) else { return };
         let hidden = launcher && !l.visible;
